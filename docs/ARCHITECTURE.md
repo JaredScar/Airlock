@@ -28,10 +28,10 @@ and redacts problems in the *delayed* copy before it leaves the machine.
 | `airlock-core` | `Ts`/`Span` media time, `Detection`, `Policy`, `DelayLine`, `DecisionEngine` | Implemented + tested |
 | `airlock-detect` | Wordlist (leet/elongation aware, token-based), spoken PII regex, private terms, on-screen secret/PII scanner | Implemented + tested |
 | `airlock-asr` | `SpeechRecognizer` trait, audio downmix/resample, `ScriptedRecognizer`, Whisper stub | Trait + helpers done; Whisper TODO |
-| `airlock-llm` | `ContextJudge` trait, prompt builder, response parser, deadline budget, Ollama/Anthropic stubs | Prompt/parse done; HTTP TODO |
+| `airlock-llm` | `ContextJudge` trait, prompt builder, response parser, deadline budget, Ollama/Anthropic stubs | Transcript is a data block with instructions after it; platform packs injected; HTTP TODO |
 | `airlock-vision` | `TextRecognizer` trait, `FrameSampler`, Windows OCR stub | Sampler done; OCR TODO |
 | `airlock-media` | Audio bleep/mute with fades, CPU pixelate/blackout, egress config; ffmpeg ingest/egress behind `ffmpeg` feature | Effects done; ingest/egress TODO |
-| `airlock-pipeline` | `Session` orchestrator, `UiEvent`s, incident CSV export | Implemented + end-to-end test |
+| `airlock-pipeline` | `Session` orchestrator, `UiEvent`s, incident CSV / EDL / chapters / YouTube timestamps | Implemented + end-to-end test |
 | `apps/desktop` | Tauri 2 shell + Angular review UI; demo mode runs a scripted stream through the real engine | Demo working; real ingest TODO |
 
 ## Core rules
