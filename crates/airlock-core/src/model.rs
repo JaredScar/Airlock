@@ -2,10 +2,12 @@
 
 use crate::time::Span;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// What kind of risk a detection represents. Policy is configured per category.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum Category {
     /// Ordinary swearing.
     Profanity,
@@ -19,6 +21,8 @@ pub enum Category {
     ScreenPii,
     /// Context-level platform-rule risk found by the LLM judge (no banned word needed).
     TosRisk,
+    /// Streamer dump. Not produced by a detector and not listed in the policy map.
+    Manual,
 }
 
 impl Category {
@@ -41,8 +45,9 @@ pub enum Modality {
 }
 
 /// Which analyzer produced a detection. Used for the incident log and evals.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum DetectorKind {
     Wordlist,
     Pii,
@@ -51,6 +56,8 @@ pub enum DetectorKind {
     ContextLlm,
     Ocr,
     VisionModel,
+    /// Streamer dump or the analysis-stall fail-safe. Not a detector.
+    Manual,
 }
 
 /// Target platform. Context rules differ per platform (Twitch vs YouTube vs Kick).
@@ -66,7 +73,8 @@ pub enum Platform {
 
 /// Rectangle in normalized frame coordinates (0.0..=1.0), origin top-left.
 /// Normalized so detections survive the analysis tap running at a lower resolution.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -123,7 +131,8 @@ impl Rect {
 }
 
 /// One recognized word from ASR, with media-time bounds.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Word {
     pub text: String,
     pub span: Span,

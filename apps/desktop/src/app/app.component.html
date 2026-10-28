@@ -13,8 +13,35 @@
     <div class="meter-track"><div class="meter-fill" [style.width.%]="delayFill()"></div></div>
   </div>
 
-  <button class="primary" (click)="al.startDemo()">{{ al.running() ? 'Restart demo' : 'Run demo' }}</button>
+  <div class="actions">
+    <label class="blackout">
+      <input type="checkbox" [checked]="blackoutVideo()" (change)="setBlackout($event)" />
+      Black out video
+    </label>
+    <button class="dump" (click)="dump()" [disabled]="!al.running()">Dump</button>
+    <button class="primary" (click)="al.startDemo()">{{ al.running() ? 'Restart demo' : 'Run demo' }}</button>
+  </div>
 </header>
+
+<details class="setup">
+  <summary>OBS setup</summary>
+  <p>Airlock sits on this PC between OBS and the platform. Point OBS at Airlock, not at Twitch.</p>
+  <ol>
+    <li>Settings → Stream → Service: <b>Custom</b>.</li>
+    <li>Server: <code>rtmp://127.0.0.1:1935/live</code></li>
+    <li>Stream key: <code>airlock</code>. This is only the local hop. The platform key stays in the OS keychain and is never typed into OBS.</li>
+  </ol>
+  <p>Use a high bitrate on this local hop. Airlock passes video through untouched and only re-encodes audio.</p>
+  <ul>
+    <li>Output mode: Advanced. Encoder: NVENC, or x264 on a machine without it.</li>
+    <li>Rate control: CBR. Bitrate: 15000 Kbps at 1080p. Keyframe interval: 2 seconds.</li>
+    <li>Audio: 48 kHz, 320 Kbps.</li>
+  </ul>
+</details>
+
+@if (al.stall(); as stall) {
+  <div class="banner bad" role="alert">{{ stall }}</div>
+}
 
 @if (al.error(); as err) {
   <div class="banner">{{ err }}</div>
@@ -66,7 +93,12 @@
   <section class="panel log">
     <h2>
       Incident log <span class="count">{{ al.aired().length }}</span>
-      <button class="ghost" (click)="exportCsv()" [disabled]="!al.aired().length">Export CSV</button>
+      <span class="exports">
+        <button class="ghost" (click)="download('csv')" [disabled]="!al.aired().length">CSV</button>
+        <button class="ghost" (click)="download('edl')" [disabled]="!al.aired().length">EDL</button>
+        <button class="ghost" (click)="download('chapters')" [disabled]="!al.aired().length">Chapters</button>
+        <button class="ghost" (click)="download('youtube')" [disabled]="!al.aired().length">YouTube</button>
+      </span>
     </h2>
     <table>
       <thead><tr><th>Time</th><th>Category</th><th>Outcome</th><th>Reason</th></tr></thead>
@@ -75,7 +107,7 @@
           <tr>
             <td>{{ formatTs(r.span.start) }}</td>
             <td>{{ label[r.category] }}</td>
-            <td [class.ok]="isActive(r)">{{ isActive(r) ? r.action : 'aired unredacted' }}</td>
+            <td [class.ok]="isActive(r)" [class.missed]="r.missed_live">{{ r.missed_live ? 'missed live' : (isActive(r) ? r.action : 'aired unredacted') }}</td>
             <td>{{ r.reasons.join(' · ') }}</td>
           </tr>
         }

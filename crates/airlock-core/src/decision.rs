@@ -5,13 +5,23 @@
 use crate::error::{Error, Result};
 use crate::model::{Category, Detection, DetectorKind, Modality, Rect};
 use crate::policy::{AudioAction, Mode, Policy, VideoAction};
-use crate::time::{Span, Ts};
+use crate::time::{Dur, Span, Ts};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 pub type RedactionId = u64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy)]
+struct Planned {
+    mode: Mode,
+    action: Action,
+    target: Target,
+    span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(export)]
 pub enum Target {
     /// The whole program audio mix.
     Audio,
@@ -19,8 +29,9 @@ pub enum Target {
     Video { region: Rect },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum Action {
     Bleep,
     Mute,
@@ -32,15 +43,17 @@ pub enum Action {
 }
 
 /// Streamer review state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum Status {
     Pending,
     Approved,
     Vetoed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Redaction {
     pub id: RedactionId,
     pub category: Category,
@@ -54,12 +67,16 @@ pub struct Redaction {
     pub reasons: Vec<String>,
     /// Masked evidence strings, safe to show.
     pub evidence: Vec<String>,
+    /// The span had already aired when this flag arrived. Kept for VOD cleanup.
+    /// The output stage must not apply it.
+    #[serde(default)]
+    pub missed_live: bool,
 }
 
 impl Redaction {
     /// Whether the output stage should actually apply this redaction.
     pub fn is_active(&self) -> bool {
-        if self.action == Action::LogOnly {
+        if self.missed_live || self.action == Action::LogOnly {
             return false;
         }
         match self.mode {
@@ -101,11 +118,97 @@ impl DecisionEngine {
     /// Feeds one detection. Returns the id of the redaction it created or merged into,
     /// or `None` if policy drops it (category disabled or confidence too low).
     pub fn ingest(&mut self, d: Detection) -> Option<RedactionId> {
+        let planned = self.classify(&d)?;
+        let gap = self.policy.merge_gap();
+
+        // Merge into an existing compatible redaction if one is close enough.
+        if let Some(r) = self.redactions.iter_mut().find(|r| {
+            r.category == d.category
+                && r.action == planned.action
+                && r.status != Status::Vetoed
+                && r.span.near(&planned.span, gap)
+                && match (&r.target, &planned.target) {
+                    (Target::Audio, Target::Audio) => true,
+                    (Target::Video { region: a }, Target::Video { region: b }) => a.intersects(b),
+                    _ => false,
+                }
+        }) {
+            r.span = r.span.union(&planned.span);
+            if let (Target::Video { region: a }, Target::Video { region: b }) =
+                (&mut r.target, &planned.target)
+            {
+                *a = a.union(b);
+            }
+            r.confidence = r.confidence.max(d.confidence);
+            if !r.sources.contains(&d.source) {
+                r.sources.push(d.source);
+            }
+            if !r.reasons.contains(&d.reason) {
+                r.reasons.push(d.reason);
+            }
+            if !d.evidence.is_empty() && !r.evidence.contains(&d.evidence) {
+                r.evidence.push(d.evidence);
+            }
+            return Some(r.id);
+        }
+
+        let id = self.next_id;
+        self.next_id += 1;
+        self.redactions.push(Redaction {
+            id,
+            category: d.category,
+            mode: planned.mode,
+            action: planned.action,
+            target: planned.target,
+            span: planned.span,
+            status: Status::Pending,
+            confidence: d.confidence,
+            sources: vec![d.source],
+            reasons: vec![d.reason],
+            evidence: if d.evidence.is_empty() {
+                vec![]
+            } else {
+                vec![d.evidence]
+            },
+            missed_live: false,
+        });
+        Some(id)
+    }
+
+    /// Records a detection whose span has already aired. It is not added to the
+    /// live list, so the output stage cannot apply it. The caller files the
+    /// returned redaction on the incident log.
+    pub fn file_missed(&mut self, d: Detection) -> Option<Redaction> {
+        let planned = self.classify(&d)?;
+        let id = self.next_id;
+        self.next_id += 1;
+        let mut reasons = vec![d.reason];
+        reasons.push("Missed live".into());
+        Some(Redaction {
+            id,
+            category: d.category,
+            mode: planned.mode,
+            action: planned.action,
+            target: planned.target,
+            span: planned.span,
+            status: Status::Pending,
+            confidence: d.confidence,
+            sources: vec![d.source],
+            reasons,
+            evidence: if d.evidence.is_empty() {
+                vec![]
+            } else {
+                vec![d.evidence]
+            },
+            missed_live: true,
+        })
+    }
+
+    fn classify(&self, d: &Detection) -> Option<Planned> {
         let cp = self.policy.get(d.category)?.clone();
         if d.confidence < cp.min_confidence {
             return None;
         }
-
         let (action, target) = match d.modality {
             Modality::Audio => (
                 match cp.audio {
@@ -132,12 +235,59 @@ impl DecisionEngine {
         } else {
             action
         };
-        let span = d.span.pad(cp.pad_before(), cp.pad_after());
-        let gap = self.policy.merge_gap();
+        Some(Planned {
+            mode: cp.mode,
+            action,
+            target,
+            span: d.span.pad(cp.pad_before(), cp.pad_after()),
+        })
+    }
 
-        // Merge into an existing compatible redaction if one is close enough.
+    /// Mutes everything still in the delay at media time `at`.
+    /// The covered interval is (at − delay, at]: a chunk that ends at `at − delay`
+    /// is already on air, and the sample at `at` is included.
+    /// `blackout_video` adds a full-frame blackout over the same interval.
+    /// Does not change the delay length.
+    pub fn dump(&mut self, at: Ts, delay: Dur, blackout_video: bool) -> Vec<RedactionId> {
+        let start = if at.0 > delay.0 { at - delay } else { Ts::ZERO };
+        let span = Span {
+            start,
+            end: at + Dur(1),
+        };
+        let mut ids = vec![self.push_manual(Action::Mute, Target::Audio, span, "Dump")];
+        if blackout_video {
+            ids.push(self.push_manual(
+                Action::Blackout,
+                Target::Video { region: Rect::FULL },
+                span,
+                "Dump",
+            ));
+        }
+        ids
+    }
+
+    /// Inserts or extends a manual redaction. Used by dump and the stall fail-safe.
+    /// No policy padding: the span is exactly what the caller asked to hold back.
+    pub fn cover_manual(
+        &mut self,
+        action: Action,
+        target: Target,
+        span: Span,
+        reason: &str,
+    ) -> RedactionId {
+        self.push_manual(action, target, span, reason)
+    }
+
+    fn push_manual(
+        &mut self,
+        action: Action,
+        target: Target,
+        span: Span,
+        reason: &str,
+    ) -> RedactionId {
+        let gap = self.policy.merge_gap();
         if let Some(r) = self.redactions.iter_mut().find(|r| {
-            r.category == d.category
+            r.category == Category::Manual
                 && r.action == action
                 && r.status != Status::Vetoed
                 && r.span.near(&span, gap)
@@ -153,39 +303,29 @@ impl DecisionEngine {
             {
                 *a = a.union(b);
             }
-            r.confidence = r.confidence.max(d.confidence);
-            if !r.sources.contains(&d.source) {
-                r.sources.push(d.source);
+            if !r.reasons.iter().any(|existing| existing == reason) {
+                r.reasons.push(reason.to_string());
             }
-            if !r.reasons.contains(&d.reason) {
-                r.reasons.push(d.reason);
-            }
-            if !d.evidence.is_empty() && !r.evidence.contains(&d.evidence) {
-                r.evidence.push(d.evidence);
-            }
-            return Some(r.id);
+            return r.id;
         }
 
         let id = self.next_id;
         self.next_id += 1;
         self.redactions.push(Redaction {
             id,
-            category: d.category,
-            mode: cp.mode,
+            category: Category::Manual,
+            mode: Mode::Apply,
             action,
             target,
             span,
             status: Status::Pending,
-            confidence: d.confidence,
-            sources: vec![d.source],
-            reasons: vec![d.reason],
-            evidence: if d.evidence.is_empty() {
-                vec![]
-            } else {
-                vec![d.evidence]
-            },
+            confidence: 1.0,
+            sources: vec![DetectorKind::Manual],
+            reasons: vec![reason.to_string()],
+            evidence: vec![],
+            missed_live: false,
         });
-        Some(id)
+        id
     }
 
     pub fn approve(&mut self, id: RedactionId) -> Result<()> {
@@ -367,6 +507,50 @@ mod tests {
     }
 
     #[test]
+    fn dump_covers_the_open_hold_through_now() {
+        let mut e = DecisionEngine::new(Policy::default());
+        let at = Ts::from_millis(20_000);
+        let delay = Dur::from_millis(8_000);
+        let ids = e.dump(at, delay, false);
+        assert_eq!(ids.len(), 1);
+        let r = e.get(ids[0]).unwrap();
+        assert_eq!(r.category, Category::Manual);
+        assert_eq!(r.action, Action::Mute);
+        assert!(r.is_active());
+        // (T − delay, T] is muted. The chunk that ends exactly at T − delay has aired.
+        assert_eq!(
+            e.audio_redactions_in(Span::from_millis(12_000, 12_000))
+                .count(),
+            0
+        );
+        assert_eq!(
+            e.audio_redactions_in(Span::from_millis(10_000, 12_000))
+                .count(),
+            0
+        );
+        assert_eq!(
+            e.audio_redactions_in(Span::from_millis(12_001, 20_001))
+                .count(),
+            1
+        );
+        assert_eq!(
+            e.audio_redactions_in(Span::from_millis(20_002, 21_000))
+                .count(),
+            0
+        );
+        assert_eq!(e.video_redactions_at(Ts::from_millis(15_000)).count(), 0);
+
+        e.dump(at, delay, true);
+        assert_eq!(e.video_redactions_at(Ts::from_millis(15_000)).count(), 1);
+        e.veto(ids[0]).unwrap();
+        assert_eq!(
+            e.audio_redactions_in(Span::from_millis(15_000, 15_100))
+                .count(),
+            0
+        );
+    }
+
+    #[test]
     fn retire_moves_aired_items_out() {
         let mut e = DecisionEngine::new(Policy::default());
         e.ingest(det(Category::Profanity, Modality::Audio, 0, 100, 0.9));
@@ -380,5 +564,25 @@ mod tests {
         let done = e.retire_before(Ts::from_millis(5000));
         assert_eq!(done.len(), 1);
         assert_eq!(e.upcoming(Ts::from_millis(5000)).len(), 1);
+    }
+
+    #[test]
+    fn missed_flag_is_logged_and_not_applied() {
+        let mut e = DecisionEngine::new(Policy::default());
+        let missed = e
+            .file_missed(det(Category::Profanity, Modality::Audio, 1000, 1400, 0.9))
+            .unwrap();
+        assert!(missed.missed_live);
+        assert!(!missed.is_active());
+        assert!(missed.reasons.iter().any(|r| r == "Missed live"));
+        assert!(e.all().is_empty());
+        assert_eq!(
+            e.audio_redactions_in(Span::from_millis(1000, 1400)).count(),
+            0
+        );
+        assert!(
+            e.file_missed(det(Category::Profanity, Modality::Audio, 0, 100, 0.1))
+                .is_none()
+        );
     }
 }

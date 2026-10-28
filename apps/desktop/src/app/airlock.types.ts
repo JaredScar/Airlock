@@ -1,53 +1,25 @@
-// Mirrors the serde output of airlock-core / airlock-pipeline. Times are microseconds
-// of media time since stream start. Keep in sync with the Rust types (PLAN.md 5.x
-// suggests generating these with ts-rs or specta).
+// Generated from the Rust types (ts-rs). `npm run build` regenerates `./generated`
+// before `ng build`, so a renamed or removed Rust field fails this build until the
+// UI is updated. Helpers below are UI-only.
 
-export type Micros = number;
+import type { Category } from './generated/Category';
+import type { Redaction } from './generated/Redaction';
+import type { Ts } from './generated/Ts';
 
-export type Category = 'profanity' | 'slur' | 'spoken_pii' | 'screen_secret' | 'screen_pii' | 'tos_risk';
-export type Mode = 'apply' | 'suggest' | 'log_only';
-export type Action = 'bleep' | 'mute' | 'blur' | 'pixelate' | 'blackout' | 'log_only';
-export type Status = 'pending' | 'approved' | 'vetoed';
-
-export interface Span {
-  start: Micros;
-  end: Micros;
-}
-
-export interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export type Target = { kind: 'audio' } | { kind: 'video'; region: Rect };
-
-export interface Word {
-  text: string;
-  span: Span;
-  confidence: number;
-}
-
-export interface Redaction {
-  id: number;
-  category: Category;
-  mode: Mode;
-  action: Action;
-  target: Target;
-  span: Span;
-  status: Status;
-  confidence: number;
-  sources: string[];
-  reasons: string[];
-  evidence: string[];
-}
-
-export type UiEvent =
-  | { type: 'transcript'; words: Word[] }
-  | { type: 'redaction_upserted'; redaction: Redaction }
-  | { type: 'redaction_aired'; redaction: Redaction }
-  | { type: 'clock'; live: Micros; playhead: Micros };
+export type { Action } from './generated/Action';
+export type { Category } from './generated/Category';
+export type { DetectorKind } from './generated/DetectorKind';
+export type { Mode } from './generated/Mode';
+export type { Rect } from './generated/Rect';
+export type { Redaction } from './generated/Redaction';
+export type { Span } from './generated/Span';
+export type { Status } from './generated/Status';
+export type { Target } from './generated/Target';
+export type { Ts } from './generated/Ts';
+export type { UiEvent } from './generated/UiEvent';
+export type { Word } from './generated/Word';
+/** Media-time microseconds. Same JSON number as `Ts`. */
+export type Micros = Ts;
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   profanity: 'Profanity',
@@ -56,6 +28,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   screen_secret: 'Secret on screen',
   screen_pii: 'PII on screen',
   tos_risk: 'ToS risk',
+  manual: 'Dump',
 };
 
 /** Mirrors `Redaction::is_active` in airlock-core. */

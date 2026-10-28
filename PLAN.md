@@ -44,21 +44,19 @@ Conventions live in `AGENTS.md`.
 - [x] 0.9 Audio bleep/mute with click-free fades; CPU pixelate/blackout — done 2026-10-28
 - [x] 0.10 `Session` orchestrator + `UiEvent` stream + incident CSV; end-to-end test with scripted ASR, fake judge, fake OCR — done 2026-10-28
 - [x] 0.11 Tauri 2 + Angular shell; demo mode replays a scripted stream through the real engine; review UI (delay meter, airlock queue with veto/approve, transcript, incident log, CSV export) — done 2026-10-28
-- [ ] 0.12 Set up git repo + CI (GitHub Actions, Windows + Linux): `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`, `npm run build`
+- [ ] 0.12 Set up git repo + CI (GitHub Actions, Windows + Linux): `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`, `npm run build` — BLOCKED: workflow is in `.github/workflows/ci.yml` and the four checks pass locally on Windows (2026-10-28); no git remote yet, so a PR has not run them. CI Node is current 22.x because the Angular CLI requires >= 22.22.3.
   - *Done when:* a PR runs all four checks green.
-- [ ] 0.13 Generate TS types from Rust (`ts-rs` or `specta` + `tauri-specta`) and replace hand-written `airlock.types.ts`
-  - *Done when:* changing a Rust field breaks the Angular build until the UI is updated.
-- [ ] 0.14 Browser preview mode: when not running inside Tauri, `AirlockService` replays a recorded `UiEvent` JSON fixture so UI work can happen in `ng serve`
-  - *Done when:* `npm start` shows the dashboard animating with fixture data.
+- [x] 0.13 Generate TS types from Rust (`ts-rs` or `specta` + `tauri-specta`) and replace hand-written `airlock.types.ts` — done 2026-10-28: ts-rs exports into `apps/desktop/src/app/generated`, and `npm run build` regenerates them before `ng build`.
+- [x] 0.14 Browser preview mode: when not running inside Tauri, `AirlockService` replays a recorded `UiEvent` JSON fixture so UI work can happen in `ng serve` — done 2026-10-28: `ng serve` auto-plays `fixtures/demo-events.json` recorded from the demo session.
 
 ## Phase 1: Audio MVP (OBS → Airlock → Twitch, bleeping swear words)
 
 Goal: a streamer can actually go live through Airlock with wordlist bleeping and a dump button.
 Video is passed through untouched (no re-encode).
 
-- [ ] 1.1 **Spike:** choose the media stack. Prototype ingest of an RTMP stream from OBS with `ffmpeg-next` on Windows (static FFmpeg build, NVENC available). Fallback candidates: GStreamer (`gstreamer-rs`), FFmpeg sidecar processes.
+- [ ] 1.1 **Spike:** choose the media stack. Prototype ingest of an RTMP stream from OBS with `ffmpeg-next` on Windows (static FFmpeg build, NVENC available). Fallback candidates: GStreamer (`gstreamer-rs`), FFmpeg sidecar processes. — BLOCKED: OBS is not installed; the 10-minute capture waits on it. ffmpeg is available for a later publisher-side prototype.
   - *Done when:* a 10-minute OBS → Airlock → local file capture has no A/V drift and the decision is logged in the Decisions log with reasons.
-- [ ] 1.2 Ingest server: listen on `rtmp://127.0.0.1:1935/live` (configurable port), accept one publisher, rebase PTS to `Ts`, handle publisher reconnect without restarting the app.
+- [ ] 1.2 Ingest server: listen on `rtmp://127.0.0.1:1935/live` (configurable port), accept one publisher, rebase PTS to `Ts`, handle publisher reconnect without restarting the app. — BLOCKED: done-when needs OBS start/stop. Depends on 1.1.
   - *Done when:* OBS can start/stop streaming to Airlock repeatedly; UI shows ingest connected/disconnected.
 - [ ] 1.3 Audio path: decode to f32 48 kHz interleaved → `DelayLine` → `apply_audio_redactions` → AAC encode.
 - [ ] 1.4 Video passthrough: delay encoded video packets in a `DelayLine` keyed on the same `Ts`; remux unchanged.
@@ -67,11 +65,10 @@ Video is passed through untouched (no re-encode).
 - [ ] 1.6 Egress: RTMPS to Twitch (then YouTube, Kick) with reconnect/backoff; stream key read from OS keychain (`keyring` crate) via `EgressTarget.stream_key_ref`, never written to disk or logs.
   - *Done when:* a 30-minute test stream to a private/unlisted channel has no drops; killing the network for 10s recovers.
 - [ ] 1.7 ASR tap (temporary): feed the live edge to a cloud STT with word timestamps (Deepgram or AssemblyAI streaming) behind `SpeechRecognizer`, so Phase 1 ships before local Whisper. Opt-in, key in keychain.
-- [ ] 1.8 **Dump button** (classic broadcast delay feature): one click/hotkey mutes all audio currently in the buffer (and optionally blacks out video) as a `Category`-less manual redaction.
-  - *Done when:* pressing dump at time T guarantees nothing captured in (T − delay, T] airs unmuted.
-- [ ] 1.9 Fail-safe behavior: if analysis stalls (no ASR words for N seconds while audio has energy), show a red banner and apply the configured fallback (`warn` | `mute` | `extend delay`).
+- [x] 1.8 **Dump button** (classic broadcast delay feature): one click/hotkey mutes all audio currently in the buffer (and optionally blacks out video) as a `Category`-less manual redaction. — done 2026-10-28: `DecisionEngine::dump` mutes (T−delay, T]; video blackout is optional and off by default. Does not rebuild the delay.
+- [x] 1.9 Fail-safe behavior: if analysis stalls (no ASR words for N seconds while audio has energy), show a red banner and apply the configured fallback (`warn` | `mute` | `extend delay`). — done 2026-10-28: default is warn after 3s; mute and extend-delay are policy settings. Extra delay stays for the session.
 - [ ] 1.10 Replace demo-only wiring in `apps/desktop/src-tauri` with a real session started from the UI ("Go live" / "Stop"), keeping demo mode behind a dev toggle.
-- [ ] 1.11 OBS setup guide in the app: what to put in OBS → Settings → Stream (Custom server `rtmp://127.0.0.1:1935/live`, recommended high-bitrate local settings).
+- [x] 1.11 OBS setup guide in the app: what to put in OBS → Settings → Stream (Custom server `rtmp://127.0.0.1:1935/live`, recommended high-bitrate local settings). — done 2026-10-28: collapsible guide in the review UI. No OBS install required to read it.
 - [ ] 1.12 **Milestone:** stream for 1 hour to Twitch through Airlock; every wordlist hit in the test script is bleeped; CPU < 15% on the dev machine beyond OBS's own usage.
 
 ## Phase 2: Local speech recognition + spoken PII
@@ -81,7 +78,7 @@ Video is passed through untouched (no re-encode).
   - *Done when:* on the eval set (Phase 6), p95 word finalization latency ≤ 1.5s on an RTX 5090 and WER within 2 points of offline Whisper on the same clips.
 - [ ] 2.3 Model manager: download/verify ggml models on first run with progress UI; pick a default by detected GPU/VRAM; CPU fallback (`small.en`).
 - [ ] 2.4 VAD gate (Silero VAD or whisper's built-in) so silence doesn't burn GPU or produce hallucinated words.
-- [ ] 2.5 Spoken numbers normalization: ASR often writes "six three one five five five…" or "631 555 0123"; extend PII patterns to cover spelled-out and space-separated digits.
+- [x] 2.5 Spoken numbers normalization: ASR often writes "six three one five five five…" or "631 555 0123"; extend PII patterns to cover spelled-out and space-separated digits. — done 2026-10-28: grouped digits stay on the phone regex; a run of ten spelled or single digits (optional leading 1, "oh" as zero) maps back to the source words. "2500" and years stay quiet.
 - [ ] 2.6 Wordlists: replace seed lists with maintained, licensed lists per language (check licenses); ship `slurs.txt` populated; UI to add/remove custom words and allowlist entries.
 - [ ] 2.7 Private terms UI: add your real name, family names, school, employer, town, street. Stored encrypted at rest (OS keychain-derived key). Never included in cloud prompts (add a test).
 - [ ] 2.8 Speaker-agnostic caveat: guests/Discord voices are in the same mix. Document it; optionally let the user add a second audio input (mic only) for higher-accuracy ASR on the streamer.
@@ -90,11 +87,11 @@ Video is passed through untouched (no re-encode).
 
 - [ ] 3.1 `OllamaJudge`: HTTP to `/api/chat` with JSON format, temperature 0, client timeout = `deadline_budget`. Recommended default model chosen by eval (start with qwen3 8B / llama3.1 8B).
 - [ ] 3.2 Judge scheduler: every ~1.5s or every N new words, call `Session::next_judge_window()` on the judge thread; drop a request if a newer one supersedes it; record latency.
-- [ ] 3.3 Late-result handling: if a flag arrives after its span aired, file it in the incident log as "missed live" (for VOD), never discard silently.
+- [x] 3.3 Late-result handling: if a flag arrives after its span aired, file it in the incident log as "missed live" (for VOD), never discard silently. — done 2026-10-28: `missed_live` on the redaction; it is not applied. A span that still overlaps the hold is redacted. Below-threshold detections are still dropped.
 - [ ] 3.4 `AnthropicJudge` (opt-in cloud): look up the current Messages API format and model IDs at docs.claude.com (don't hardcode from memory); explicit consent toggle in settings ("transcript text leaves this PC").
-- [ ] 3.5 Per-platform rule packs: short platform-specific guidance injected into the prompt (Twitch / YouTube / Kick), versioned in `config/platform_rules/`.
-- [ ] 3.6 Streamer rules: free-text rules from settings ("don't say my ex's name", "no sponsor competitor names") passed to the judge.
-- [ ] 3.7 Prompt-injection hardening: chat messages read aloud can contain "ignore previous instructions". Treat transcript strictly as data (delimiters, instruction at end, schema-validated output); add adversarial eval cases.
+- [x] 3.5 Per-platform rule packs: short platform-specific guidance injected into the prompt (Twitch / YouTube / Kick), versioned in `config/platform_rules/`. — done 2026-10-28: v1 packs compiled into the prompt; a Twitch request does not include the YouTube or Kick pack.
+- [x] 3.6 Streamer rules: free-text rules from settings ("don't say my ex's name", "no sponsor competitor names") passed to the judge. — done 2026-10-28: `Session::judge_request` passes `streamer_rules` into the prompt. Private terms are not a prompt field. The settings screen is still 5.2.
+- [x] 3.7 Prompt-injection hardening: chat messages read aloud can contain "ignore previous instructions". Treat transcript strictly as data (delimiters, instruction at end, schema-validated output); add adversarial eval cases. — done 2026-10-28: transcript is between markers, instructions follow, a forged end-marker in a word cannot close the block, and a non-`tos_risk` category is dropped.
 - [ ] 3.8 **Milestone:** on the eval set, ToS-risk precision ≥ 0.85 at the default threshold with p95 latency inside the budget.
 
 ## Phase 4: On-screen secrets and PII
@@ -115,14 +112,14 @@ Video is passed through untouched (no re-encode).
 - [ ] 5.2 Settings UI: policy editor (per-category mode/action/threshold/padding) backed by the TOML schema, delay length, providers, platforms, private terms, wordlists.
 - [ ] 5.3 Onboarding wizard: detect GPU → pick models → connect platform keys → configure OBS automatically via obs-websocket (set custom server) → test stream.
 - [ ] 5.4 Compact "on-air" overlay mode: small always-on-top window with the countdown queue for single-monitor streamers.
-- [ ] 5.5 Incident log upgrades: export as EDL / chapter markers / YouTube timestamps so VOD cleanup is fast; per-session history.
+- [x] 5.5 Incident log upgrades: export as EDL / chapter markers / YouTube timestamps so VOD cleanup is fast; per-session history. — done 2026-10-28: CSV, CMX 3600 EDL, WebVTT chapters, and YouTube timestamps from the aired log, including missed-live rows. Buttons in the incident log.
 - [ ] 5.6 Health panel: ingest bitrate, buffer fill, ASR/judge/OCR latency p50/p95, dropped frames, GPU usage.
 - [ ] 5.7 Light theme + accessibility pass (keyboard navigation, screen reader labels, color-blind-safe category colors).
 - [ ] 5.8 System tray + start with OBS (detect OBS launch).
 
 ## Phase 6: Evaluation and quality
 
-- [ ] 6.1 Eval corpus format: audio/video clip + labeled spans (category, start, end, region) in JSONL under `evals/` (large media in Git LFS or external storage).
+- [x] 6.1 Eval corpus format: audio/video clip + labeled spans (category, start, end, region) in JSONL under `evals/` (large media in Git LFS or external storage). — done 2026-10-28: `evals/v1/labels.jsonl` plus `parse_labels`. Lines carry clip, category, start_us, end_us, and an optional region. No media in git.
 - [ ] 6.2 Corpus v1: TTS-generated speech for profanity/PII/ToS cases + recorded real speech with gaming background noise; screen recordings with planted fake secrets.
 - [ ] 6.3 `airlock-eval` binary: runs the full pipeline offline over the corpus; reports precision/recall per category, span overlap, and latency percentiles; JSON + markdown output.
 - [ ] 6.4 CI regression gate on a small fast subset (scripted ASR) so detector/policy changes can't silently regress.
@@ -168,10 +165,19 @@ Video is passed through untouched (no re-encode).
 - D8 2026-10-28: Secrets are **pixelated** (irreversible) rather than lightly blurred; `blur` in policy should map to a strong blur or pixelation.
 - D9 2026-10-28: **Private terms never leave the machine**; stream/API keys live only in the OS keychain.
 - D10 2026-10-28: Phase 1 ships with **video passthrough** and a temporary cloud STT tap, so a usable product exists before local Whisper and video transcode.
+- D11 2026-10-28: UI bindings come from **ts-rs**. Media timestamps and redaction ids export as `number` (serde JSON numbers), not `bigint`. `npm run build` / `npm start` regenerate the bindings first, so a Rust field change fails the Angular build until the UI matches.
+- D12 2026-10-28: The live pipeline targets **Windows and macOS** from the start. Phase 1 video stays passthrough, so ingest/remux stays portable (no NVENC/VideoToolbox until a video category is on). Linux CI covers the engine and the UI build only.
+- D13 2026-10-28: Prove **OBS → delay → local file** before any speech-to-text. Cloud STT (task 1.7) stays in the plan; the provider is still open. The 1.1 capture waits until OBS is installed on the dev machine.
+- D14 2026-10-28: Dump is a **manual redaction** (`Category::Manual`), not a policy category. It mutes (T−delay, T] and does not rebuild the delay. Video blackout is a checkbox, off by default.
+- D15 2026-10-28: Analysis stall defaults to **warn** after 3s of audio energy with no words. Mute covers from the last word to now. Extend-delay adds the stall window once and keeps it, so the playhead does not jump forward.
+- D16 2026-10-28: Spoken phones match the existing grouped pattern ("631 555 0123") or a run of ten single digits, spelled or numeric, with an optional leading 1. "oh" counts as zero. Years and counts like "2500" do not.
+- D17 2026-10-28: A detection whose span has already ended at the playhead is an incident-log row with `missed_live` and is not applied. A span that still overlaps the hold is redacted. Policy still drops low-confidence hits.
+- D18 2026-10-28: Platform packs are versioned text in `config/platform_rules/`, compiled into the judge prompt. The transcript is a delimited data block and the instructions come after it. Private terms are not a prompt field; `Session::judge_request` passes streamer rules only.
+- D19 2026-10-28: The incident log exports CMX 3600 EDL at 30 fps, WebVTT chapters, and YouTube description timestamps, including missed-live rows.
+- D20 2026-10-28: Eval labels are JSONL under `evals/v1/`: clip, category, `start_us`, `end_us`, optional region. Media stays out of git.
 
 ## Open questions (for Jared)
 
 - Final name and trademark check ("Airlock" is a working name).
 - Pricing model: one-time vs. subscription; what's in the free tier.
-- Windows-only for v1, or macOS from the start?
 - Should the dump button also extend the delay automatically (like broadcast "delay rebuild")?

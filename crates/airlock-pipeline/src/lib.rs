@@ -7,14 +7,17 @@
 //! `Session` itself is single-threaded and synchronous on purpose, so it's trivially
 //! testable (see tests/end_to_end.rs).
 
+pub mod eval_label;
 pub mod incident;
 
 use airlock_core::{
-    Category, DecisionEngine, Detection, Dur, Platform, Policy, Redaction, RedactionId, Span,
-    TextBox, Ts, Word,
+    Action, Category, DecisionEngine, Detection, Dur, Platform, Policy, Redaction, RedactionId,
+    Span, StallFallback, Target, TextBox, Ts, Word,
 };
 use airlock_detect::{ScreenTextScanner, SpokenPiiDetector, WordlistDetector};
-use serde::Serialize;
+use airlock_llm::JudgeRequest;
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 pub const DEFAULT_PROFANITY: &str = include_str!("../../../config/wordlists/profanity.txt");
 pub const DEFAULT_SLURS: &str = include_str!("../../../config/wordlists/slurs.txt");
@@ -54,13 +57,29 @@ impl Default for SessionConfig {
 }
 
 /// Everything the UI needs, as a single serializable stream.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
 pub enum UiEvent {
-    Transcript { words: Vec<Word> },
-    RedactionUpserted { redaction: Redaction },
-    RedactionAired { redaction: Redaction },
-    Clock { live: Ts, playhead: Ts },
+    Transcript {
+        words: Vec<Word>,
+    },
+    RedactionUpserted {
+        redaction: Redaction,
+    },
+    RedactionAired {
+        redaction: Redaction,
+    },
+    Clock {
+        live: Ts,
+        playhead: Ts,
+    },
+    /// Speech recognition went quiet while the mix still had audio, or recovered.
+    AnalysisStall {
+        active: bool,
+        fallback: StallFallback,
+        message: String,
+    },
 }
 
 /// What the judge thread needs for one request (owned, so it can cross threads).
@@ -81,6 +100,11 @@ pub struct Session {
     transcript: Vec<Word>,
     judged_until: Ts,
     live: Ts,
+    /// Extra hold added by the stall fail-safe. Not removed when words return:
+    /// shrinking it would jump the playhead forward and skip audio.
+    extra_delay: Dur,
+    last_word_at: Option<Ts>,
+    stall_latched: bool,
     events: Vec<UiEvent>,
     aired: Vec<Redaction>,
 }
@@ -100,6 +124,9 @@ impl Session {
             transcript: Vec::new(),
             judged_until: Ts::ZERO,
             live: Ts::ZERO,
+            extra_delay: Dur::ZERO,
+            last_word_at: None,
+            stall_latched: false,
             events: Vec::new(),
             aired: Vec::new(),
             cfg,
@@ -111,11 +138,27 @@ impl Session {
     }
 
     pub fn playhead(&self) -> Ts {
-        self.live - self.cfg.policy.delay()
+        self.live - (self.cfg.policy.delay() + self.extra_delay)
+    }
+
+    /// How long audio is currently held. Policy delay plus any stall extension.
+    pub fn hold(&self) -> Dur {
+        self.cfg.policy.delay() + self.extra_delay
     }
 
     fn ingest_all(&mut self, detections: Vec<Detection>) {
-        let mut touched: Vec<RedactionId> = detections
+        let playhead = self.playhead();
+        let (late, live): (Vec<_>, Vec<_>) =
+            detections.into_iter().partition(|d| d.span.end <= playhead);
+        for d in late {
+            if let Some(r) = self.engine.file_missed(d) {
+                self.events.push(UiEvent::RedactionAired {
+                    redaction: r.clone(),
+                });
+                self.aired.push(r);
+            }
+        }
+        let mut touched: Vec<RedactionId> = live
             .into_iter()
             .filter_map(|d| self.engine.ingest(d))
             .collect();
@@ -148,6 +191,10 @@ impl Session {
                 .filter(|d| d.span.end > new_from),
         );
 
+        if let Some(end) = words.iter().map(|w| w.span.end).max() {
+            self.last_word_at = Some(self.last_word_at.map(|t| t.max(end)).unwrap_or(end));
+        }
+        self.clear_stall();
         self.transcript.extend(words.iter().cloned());
         self.events.push(UiEvent::Transcript { words });
         self.ingest_all(found);
@@ -179,6 +226,18 @@ impl Session {
         })
     }
 
+    /// Fills the judge request from this session. Streamer rules are included.
+    /// Private terms are not: they stay in the local detector.
+    pub fn judge_request<'a>(&'a self, window: &'a JudgeWindow) -> JudgeRequest<'a> {
+        JudgeRequest {
+            words: &window.words,
+            focus_start: window.focus_start,
+            platform: self.cfg.platform,
+            delay: self.hold(),
+            streamer_rules: &self.cfg.streamer_rules,
+        }
+    }
+
     pub fn on_judge_result(&mut self, window: &JudgeWindow, detections: Vec<Detection>) {
         self.judged_until = self.judged_until.max(window.covers_until);
         self.ingest_all(detections);
@@ -201,6 +260,95 @@ impl Session {
         self.events.push(UiEvent::Clock {
             live: self.live,
             playhead,
+        });
+    }
+
+    /// Mutes everything still in the hold. `blackout_video` also blacks the frame.
+    /// Does not extend the delay.
+    pub fn dump(&mut self, blackout_video: bool) {
+        for id in self.engine.dump(self.live, self.hold(), blackout_video) {
+            self.push_upsert(id);
+        }
+    }
+
+    /// Call after `on_live_time` when a chunk of program audio has been measured.
+    /// `energetic` should come from `airlock_asr::audio::has_speech_energy`.
+    pub fn note_audio_energy(&mut self, energetic: bool) {
+        let limit = Dur::from_millis(self.cfg.policy.stall_after_ms);
+        let since_words = self.live - self.last_word_at.unwrap_or(Ts::ZERO);
+        let stalled = energetic && self.live > Ts::ZERO && since_words >= limit;
+        if !stalled {
+            self.clear_stall();
+            return;
+        }
+        match self.cfg.policy.stall_fallback {
+            StallFallback::Warn => {}
+            StallFallback::Mute => {
+                let start = self.last_word_at.unwrap_or(Ts::ZERO).max(self.playhead());
+                let id = self.engine.cover_manual(
+                    Action::Mute,
+                    Target::Audio,
+                    Span {
+                        start,
+                        end: self.live + Dur(1),
+                    },
+                    "No speech recognition while the mix has audio",
+                );
+                self.push_upsert(id);
+            }
+            StallFallback::ExtendDelay => {
+                if !self.stall_latched {
+                    let step = Dur::from_millis(self.cfg.policy.stall_after_ms);
+                    let cap = Dur::from_millis(60_000);
+                    if self.hold() + step <= cap {
+                        self.extra_delay = self.extra_delay + step;
+                        let playhead = self.playhead();
+                        self.events.push(UiEvent::Clock {
+                            live: self.live,
+                            playhead,
+                        });
+                    }
+                }
+            }
+        }
+        if !self.stall_latched {
+            self.stall_latched = true;
+            let fallback = self.cfg.policy.stall_fallback;
+            let message = self.stall_message();
+            self.events.push(UiEvent::AnalysisStall {
+                active: true,
+                fallback,
+                message,
+            });
+        }
+    }
+
+    fn stall_message(&self) -> String {
+        match self.cfg.policy.stall_fallback {
+            StallFallback::Warn => {
+                "Speech recognition stalled. Audio is still airing unanalyzed.".into()
+            }
+            StallFallback::Mute => {
+                "Speech recognition stalled. Muting audio still in the delay.".into()
+            }
+            StallFallback::ExtendDelay => {
+                format!(
+                    "Speech recognition stalled. Delay extended to {:.1}s.",
+                    self.hold().as_secs_f64()
+                )
+            }
+        }
+    }
+
+    fn clear_stall(&mut self) {
+        if !self.stall_latched {
+            return;
+        }
+        self.stall_latched = false;
+        self.events.push(UiEvent::AnalysisStall {
+            active: false,
+            fallback: self.cfg.policy.stall_fallback,
+            message: String::new(),
         });
     }
 

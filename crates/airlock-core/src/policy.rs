@@ -5,10 +5,12 @@ use crate::model::Category;
 use crate::time::Dur;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use ts_rs::TS;
 
 /// How a category is handled once detected.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum Mode {
     /// Redact automatically. The streamer can veto during the delay window.
     Apply,
@@ -33,6 +35,19 @@ pub enum VideoAction {
     Pixelate,
     Blackout,
     None,
+}
+
+/// What to do when speech recognition goes quiet while the mix still has audio.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum StallFallback {
+    /// Red banner only. Audio still airs.
+    Warn,
+    /// Mute audio from the last recognized word through now.
+    Mute,
+    /// Hold the stream longer. The extra delay stays for the rest of the session.
+    ExtendDelay,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -62,6 +77,9 @@ pub struct Policy {
     pub delay_ms: i64,
     /// Redactions of the same kind closer than this get merged into one.
     pub merge_gap_ms: i64,
+    /// No finalized words for this long, while audio has energy, counts as a stall.
+    pub stall_after_ms: i64,
+    pub stall_fallback: StallFallback,
     pub categories: BTreeMap<Category, CategoryPolicy>,
 }
 
@@ -102,6 +120,12 @@ impl Policy {
             if cp.pad_before_ms < 0 || cp.pad_after_ms < 0 {
                 return Err(Error::Policy(format!("{c:?}: padding must be >= 0")));
             }
+        }
+        if !(500..=60_000).contains(&self.stall_after_ms) {
+            return Err(Error::Policy(format!(
+                "stall_after_ms must be 500..=60000, got {}",
+                self.stall_after_ms
+            )));
         }
         Ok(())
     }
@@ -149,6 +173,8 @@ impl Default for Policy {
         Policy {
             delay_ms: 8_000,
             merge_gap_ms: 250,
+            stall_after_ms: 3_000,
+            stall_fallback: StallFallback::Warn,
             categories,
         }
     }

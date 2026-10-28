@@ -1,0 +1,6 @@
+# ts-rs reads these while exporting bindings (PLAN 0.13).
+# Paths are relative to the workspace root (the directory that contains `.cargo`).
+# Ids and media timestamps are JSON numbers, matching the Angular UI (`number`, not `bigint`).
+[env]
+TS_RS_EXPORT_DIR = { value = "apps/desktop/src/app/generated", relative = true }
+TS_RS_LARGE_INT = "number"

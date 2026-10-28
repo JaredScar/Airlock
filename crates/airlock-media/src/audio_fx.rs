@@ -90,6 +90,7 @@ mod tests {
             sources: vec![],
             reasons: vec![],
             evidence: vec![],
+            missed_live: false,
         }
     }
 
@@ -127,5 +128,49 @@ mod tests {
             .fold(0.0f32, |m, s| m.max(s.abs()));
         assert!((peak - BLEEP_GAIN).abs() < 0.01, "{peak}");
         assert!(buf[..190 * 48].iter().all(|s| *s == 0.0));
+    }
+
+    #[test]
+    fn dump_silences_audio_still_in_the_hold() {
+        use airlock_core::{DecisionEngine, Dur, Policy};
+        let mut engine = DecisionEngine::new(Policy::default());
+        let at = Ts::from_millis(20_000);
+        engine.dump(at, Dur::from_millis(8_000), false);
+
+        let sr = 48_000u32;
+        let mut held = vec![0.4f32; sr as usize / 10];
+        let mut chunk = AudioChunk {
+            start: Ts::from_millis(15_000),
+            sample_rate: sr,
+            channels: 1,
+            samples: &mut held,
+        };
+        let span = chunk.span();
+        apply_audio_redactions(&mut chunk, engine.audio_redactions_in(span));
+        assert!(held[held.len() / 2].abs() < 1e-4);
+
+        let mut aired = vec![0.4f32; sr as usize / 10];
+        let mut before = AudioChunk {
+            start: Ts::from_millis(10_000),
+            sample_rate: sr,
+            channels: 1,
+            samples: &mut aired,
+        };
+        let span = before.span();
+        apply_audio_redactions(&mut before, engine.audio_redactions_in(span));
+        assert!(aired.iter().all(|s| (*s - 0.4).abs() < 1e-6));
+
+        // 100ms starting 50ms before T: samples after T stay, samples inside the hold don't.
+        let mut edge = vec![0.4f32; sr as usize / 10];
+        let mut crossing = AudioChunk {
+            start: Ts::from_millis(19_950),
+            sample_rate: sr,
+            channels: 1,
+            samples: &mut edge,
+        };
+        let span = crossing.span();
+        apply_audio_redactions(&mut crossing, engine.audio_redactions_in(span));
+        assert!(edge[20 * 48].abs() < 1e-3, "inside the hold");
+        assert!((edge[80 * 48] - 0.4).abs() < 1e-6, "after T");
     }
 }

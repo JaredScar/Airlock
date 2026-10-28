@@ -1,0 +1,5030 @@
+[
+  {
+    "at_ms": 100,
+    "event": {
+      "type": "clock",
+      "live": 100000,
+      "playhead": -7900000
+    }
+  },
+  {
+    "at_ms": 200,
+    "event": {
+      "type": "clock",
+      "live": 200000,
+      "playhead": -7800000
+    }
+  },
+  {
+    "at_ms": 300,
+    "event": {
+      "type": "clock",
+      "live": 300000,
+      "playhead": -7700000
+    }
+  },
+  {
+    "at_ms": 400,
+    "event": {
+      "type": "clock",
+      "live": 400000,
+      "playhead": -7600000
+    }
+  },
+  {
+    "at_ms": 500,
+    "event": {
+      "type": "clock",
+      "live": 500000,
+      "playhead": -7500000
+    }
+  },
+  {
+    "at_ms": 600,
+    "event": {
+      "type": "clock",
+      "live": 600000,
+      "playhead": -7400000
+    }
+  },
+  {
+    "at_ms": 700,
+    "event": {
+      "type": "clock",
+      "live": 700000,
+      "playhead": -7300000
+    }
+  },
+  {
+    "at_ms": 800,
+    "event": {
+      "type": "clock",
+      "live": 800000,
+      "playhead": -7200000
+    }
+  },
+  {
+    "at_ms": 900,
+    "event": {
+      "type": "clock",
+      "live": 900000,
+      "playhead": -7100000
+    }
+  },
+  {
+    "at_ms": 1000,
+    "event": {
+      "type": "clock",
+      "live": 1000000,
+      "playhead": -7000000
+    }
+  },
+  {
+    "at_ms": 1100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "alright",
+          "span": {
+            "start": 500000,
+            "end": 790000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 1100,
+    "event": {
+      "type": "clock",
+      "live": 1100000,
+      "playhead": -6900000
+    }
+  },
+  {
+    "at_ms": 1200,
+    "event": {
+      "type": "clock",
+      "live": 1200000,
+      "playhead": -6800000
+    }
+  },
+  {
+    "at_ms": 1300,
+    "event": {
+      "type": "clock",
+      "live": 1300000,
+      "playhead": -6700000
+    }
+  },
+  {
+    "at_ms": 1400,
+    "event": {
+      "type": "clock",
+      "live": 1400000,
+      "playhead": -6600000
+    }
+  },
+  {
+    "at_ms": 1500,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "chat",
+          "span": {
+            "start": 830000,
+            "end": 1120000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 1500,
+    "event": {
+      "type": "clock",
+      "live": 1500000,
+      "playhead": -6500000
+    }
+  },
+  {
+    "at_ms": 1600,
+    "event": {
+      "type": "clock",
+      "live": 1600000,
+      "playhead": -6400000
+    }
+  },
+  {
+    "at_ms": 1700,
+    "event": {
+      "type": "clock",
+      "live": 1700000,
+      "playhead": -6300000
+    }
+  },
+  {
+    "at_ms": 1800,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "we",
+          "span": {
+            "start": 1160000,
+            "end": 1450000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 1800,
+    "event": {
+      "type": "clock",
+      "live": 1800000,
+      "playhead": -6200000
+    }
+  },
+  {
+    "at_ms": 1900,
+    "event": {
+      "type": "clock",
+      "live": 1900000,
+      "playhead": -6100000
+    }
+  },
+  {
+    "at_ms": 2000,
+    "event": {
+      "type": "clock",
+      "live": 2000000,
+      "playhead": -6000000
+    }
+  },
+  {
+    "at_ms": 2100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "are",
+          "span": {
+            "start": 1490000,
+            "end": 1780000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 2100,
+    "event": {
+      "type": "clock",
+      "live": 2100000,
+      "playhead": -5900000
+    }
+  },
+  {
+    "at_ms": 2200,
+    "event": {
+      "type": "clock",
+      "live": 2200000,
+      "playhead": -5800000
+    }
+  },
+  {
+    "at_ms": 2300,
+    "event": {
+      "type": "clock",
+      "live": 2300000,
+      "playhead": -5700000
+    }
+  },
+  {
+    "at_ms": 2400,
+    "event": {
+      "type": "clock",
+      "live": 2400000,
+      "playhead": -5600000
+    }
+  },
+  {
+    "at_ms": 2500,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "so",
+          "span": {
+            "start": 1820000,
+            "end": 2110000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 2500,
+    "event": {
+      "type": "clock",
+      "live": 2500000,
+      "playhead": -5500000
+    }
+  },
+  {
+    "at_ms": 2600,
+    "event": {
+      "type": "clock",
+      "live": 2600000,
+      "playhead": -5400000
+    }
+  },
+  {
+    "at_ms": 2700,
+    "event": {
+      "type": "clock",
+      "live": 2700000,
+      "playhead": -5300000
+    }
+  },
+  {
+    "at_ms": 2800,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "back",
+          "span": {
+            "start": 2150000,
+            "end": 2440000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 2800,
+    "event": {
+      "type": "clock",
+      "live": 2800000,
+      "playhead": -5200000
+    }
+  },
+  {
+    "at_ms": 2900,
+    "event": {
+      "type": "clock",
+      "live": 2900000,
+      "playhead": -5100000
+    }
+  },
+  {
+    "at_ms": 3000,
+    "event": {
+      "type": "clock",
+      "live": 3000000,
+      "playhead": -5000000
+    }
+  },
+  {
+    "at_ms": 3100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "today",
+          "span": {
+            "start": 2480000,
+            "end": 2770000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 3100,
+    "event": {
+      "type": "clock",
+      "live": 3100000,
+      "playhead": -4900000
+    }
+  },
+  {
+    "at_ms": 3200,
+    "event": {
+      "type": "clock",
+      "live": 3200000,
+      "playhead": -4800000
+    }
+  },
+  {
+    "at_ms": 3300,
+    "event": {
+      "type": "clock",
+      "live": 3300000,
+      "playhead": -4700000
+    }
+  },
+  {
+    "at_ms": 3400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "welcome",
+          "span": {
+            "start": 2810000,
+            "end": 3100000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 3400,
+    "event": {
+      "type": "clock",
+      "live": 3400000,
+      "playhead": -4600000
+    }
+  },
+  {
+    "at_ms": 3500,
+    "event": {
+      "type": "clock",
+      "live": 3500000,
+      "playhead": -4500000
+    }
+  },
+  {
+    "at_ms": 3600,
+    "event": {
+      "type": "clock",
+      "live": 3600000,
+      "playhead": -4400000
+    }
+  },
+  {
+    "at_ms": 3700,
+    "event": {
+      "type": "clock",
+      "live": 3700000,
+      "playhead": -4300000
+    }
+  },
+  {
+    "at_ms": 3800,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "in",
+          "span": {
+            "start": 3140000,
+            "end": 3430000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 3800,
+    "event": {
+      "type": "clock",
+      "live": 3800000,
+      "playhead": -4200000
+    }
+  },
+  {
+    "at_ms": 3900,
+    "event": {
+      "type": "clock",
+      "live": 3900000,
+      "playhead": -4100000
+    }
+  },
+  {
+    "at_ms": 4000,
+    "event": {
+      "type": "clock",
+      "live": 4000000,
+      "playhead": -4000000
+    }
+  },
+  {
+    "at_ms": 4100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "everybody",
+          "span": {
+            "start": 3470000,
+            "end": 3760000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 4100,
+    "event": {
+      "type": "clock",
+      "live": 4100000,
+      "playhead": -3900000
+    }
+  },
+  {
+    "at_ms": 4200,
+    "event": {
+      "type": "clock",
+      "live": 4200000,
+      "playhead": -3800000
+    }
+  },
+  {
+    "at_ms": 4300,
+    "event": {
+      "type": "clock",
+      "live": 4300000,
+      "playhead": -3700000
+    }
+  },
+  {
+    "at_ms": 4400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "oh",
+          "span": {
+            "start": 3800000,
+            "end": 4090000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 4400,
+    "event": {
+      "type": "clock",
+      "live": 4400000,
+      "playhead": -3600000
+    }
+  },
+  {
+    "at_ms": 4500,
+    "event": {
+      "type": "clock",
+      "live": 4500000,
+      "playhead": -3500000
+    }
+  },
+  {
+    "at_ms": 4600,
+    "event": {
+      "type": "clock",
+      "live": 4600000,
+      "playhead": -3400000
+    }
+  },
+  {
+    "at_ms": 4700,
+    "event": {
+      "type": "clock",
+      "live": 4700000,
+      "playhead": -3300000
+    }
+  },
+  {
+    "at_ms": 4800,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "my",
+          "span": {
+            "start": 4130000,
+            "end": 4420000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 4800,
+    "event": {
+      "type": "clock",
+      "live": 4800000,
+      "playhead": -3200000
+    }
+  },
+  {
+    "at_ms": 4900,
+    "event": {
+      "type": "clock",
+      "live": 4900000,
+      "playhead": -3100000
+    }
+  },
+  {
+    "at_ms": 5000,
+    "event": {
+      "type": "clock",
+      "live": 5000000,
+      "playhead": -3000000
+    }
+  },
+  {
+    "at_ms": 5100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "god",
+          "span": {
+            "start": 4460000,
+            "end": 4750000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 5100,
+    "event": {
+      "type": "clock",
+      "live": 5100000,
+      "playhead": -2900000
+    }
+  },
+  {
+    "at_ms": 5200,
+    "event": {
+      "type": "clock",
+      "live": 5200000,
+      "playhead": -2800000
+    }
+  },
+  {
+    "at_ms": 5300,
+    "event": {
+      "type": "clock",
+      "live": 5300000,
+      "playhead": -2700000
+    }
+  },
+  {
+    "at_ms": 5400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "what",
+          "span": {
+            "start": 4790000,
+            "end": 5080000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 5400,
+    "event": {
+      "type": "clock",
+      "live": 5400000,
+      "playhead": -2600000
+    }
+  },
+  {
+    "at_ms": 5500,
+    "event": {
+      "type": "clock",
+      "live": 5500000,
+      "playhead": -2500000
+    }
+  },
+  {
+    "at_ms": 5600,
+    "event": {
+      "type": "clock",
+      "live": 5600000,
+      "playhead": -2400000
+    }
+  },
+  {
+    "at_ms": 5700,
+    "event": {
+      "type": "clock",
+      "live": 5700000,
+      "playhead": -2300000
+    }
+  },
+  {
+    "at_ms": 5800,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "the",
+          "span": {
+            "start": 5120000,
+            "end": 5410000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 5800,
+    "event": {
+      "type": "clock",
+      "live": 5800000,
+      "playhead": -2200000
+    }
+  },
+  {
+    "at_ms": 5900,
+    "event": {
+      "type": "clock",
+      "live": 5900000,
+      "playhead": -2100000
+    }
+  },
+  {
+    "at_ms": 6000,
+    "event": {
+      "type": "clock",
+      "live": 6000000,
+      "playhead": -2000000
+    }
+  },
+  {
+    "at_ms": 6100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "fuck",
+          "span": {
+            "start": 5450000,
+            "end": 5740000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 6100,
+    "event": {
+      "type": "redaction_upserted",
+      "redaction": {
+        "id": 1,
+        "category": "profanity",
+        "mode": "apply",
+        "action": "bleep",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 5370000,
+          "end": 5820000
+        },
+        "status": "pending",
+        "confidence": 0.92,
+        "sources": [
+          "wordlist"
+        ],
+        "reasons": [
+          "Profanity"
+        ],
+        "evidence": [
+          "f•••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 6100,
+    "event": {
+      "type": "clock",
+      "live": 6100000,
+      "playhead": -1900000
+    }
+  },
+  {
+    "at_ms": 6200,
+    "event": {
+      "type": "clock",
+      "live": 6200000,
+      "playhead": -1800000
+    }
+  },
+  {
+    "at_ms": 6300,
+    "event": {
+      "type": "clock",
+      "live": 6300000,
+      "playhead": -1700000
+    }
+  },
+  {
+    "at_ms": 6400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "was",
+          "span": {
+            "start": 5780000,
+            "end": 6070000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 6400,
+    "event": {
+      "type": "clock",
+      "live": 6400000,
+      "playhead": -1600000
+    }
+  },
+  {
+    "at_ms": 6500,
+    "event": {
+      "type": "clock",
+      "live": 6500000,
+      "playhead": -1500000
+    }
+  },
+  {
+    "at_ms": 6600,
+    "event": {
+      "type": "clock",
+      "live": 6600000,
+      "playhead": -1400000
+    }
+  },
+  {
+    "at_ms": 6700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "that",
+          "span": {
+            "start": 6110000,
+            "end": 6400000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 6700,
+    "event": {
+      "type": "clock",
+      "live": 6700000,
+      "playhead": -1300000
+    }
+  },
+  {
+    "at_ms": 6800,
+    "event": {
+      "type": "clock",
+      "live": 6800000,
+      "playhead": -1200000
+    }
+  },
+  {
+    "at_ms": 6900,
+    "event": {
+      "type": "clock",
+      "live": 6900000,
+      "playhead": -1100000
+    }
+  },
+  {
+    "at_ms": 7000,
+    "event": {
+      "type": "clock",
+      "live": 7000000,
+      "playhead": -1000000
+    }
+  },
+  {
+    "at_ms": 7100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "boss",
+          "span": {
+            "start": 6440000,
+            "end": 6730000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 7100,
+    "event": {
+      "type": "clock",
+      "live": 7100000,
+      "playhead": -900000
+    }
+  },
+  {
+    "at_ms": 7200,
+    "event": {
+      "type": "clock",
+      "live": 7200000,
+      "playhead": -800000
+    }
+  },
+  {
+    "at_ms": 7300,
+    "event": {
+      "type": "clock",
+      "live": 7300000,
+      "playhead": -700000
+    }
+  },
+  {
+    "at_ms": 7400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "fight",
+          "span": {
+            "start": 6770000,
+            "end": 7060000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 7400,
+    "event": {
+      "type": "clock",
+      "live": 7400000,
+      "playhead": -600000
+    }
+  },
+  {
+    "at_ms": 7500,
+    "event": {
+      "type": "clock",
+      "live": 7500000,
+      "playhead": -500000
+    }
+  },
+  {
+    "at_ms": 7600,
+    "event": {
+      "type": "clock",
+      "live": 7600000,
+      "playhead": -400000
+    }
+  },
+  {
+    "at_ms": 7700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "honestly",
+          "span": {
+            "start": 7100000,
+            "end": 7390000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 7700,
+    "event": {
+      "type": "clock",
+      "live": 7700000,
+      "playhead": -300000
+    }
+  },
+  {
+    "at_ms": 7800,
+    "event": {
+      "type": "clock",
+      "live": 7800000,
+      "playhead": -200000
+    }
+  },
+  {
+    "at_ms": 7900,
+    "event": {
+      "type": "clock",
+      "live": 7900000,
+      "playhead": -100000
+    }
+  },
+  {
+    "at_ms": 8000,
+    "event": {
+      "type": "clock",
+      "live": 8000000,
+      "playhead": 0
+    }
+  },
+  {
+    "at_ms": 8100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "if",
+          "span": {
+            "start": 7430000,
+            "end": 7720000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 8100,
+    "event": {
+      "type": "clock",
+      "live": 8100000,
+      "playhead": 100000
+    }
+  },
+  {
+    "at_ms": 8200,
+    "event": {
+      "type": "clock",
+      "live": 8200000,
+      "playhead": 200000
+    }
+  },
+  {
+    "at_ms": 8300,
+    "event": {
+      "type": "clock",
+      "live": 8300000,
+      "playhead": 300000
+    }
+  },
+  {
+    "at_ms": 8400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "you",
+          "span": {
+            "start": 7760000,
+            "end": 8050000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 8400,
+    "event": {
+      "type": "clock",
+      "live": 8400000,
+      "playhead": 400000
+    }
+  },
+  {
+    "at_ms": 8500,
+    "event": {
+      "type": "clock",
+      "live": 8500000,
+      "playhead": 500000
+    }
+  },
+  {
+    "at_ms": 8600,
+    "event": {
+      "type": "clock",
+      "live": 8600000,
+      "playhead": 600000
+    }
+  },
+  {
+    "at_ms": 8700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "want",
+          "span": {
+            "start": 8090000,
+            "end": 8380000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 8700,
+    "event": {
+      "type": "clock",
+      "live": 8700000,
+      "playhead": 700000
+    }
+  },
+  {
+    "at_ms": 8800,
+    "event": {
+      "type": "clock",
+      "live": 8800000,
+      "playhead": 800000
+    }
+  },
+  {
+    "at_ms": 8900,
+    "event": {
+      "type": "clock",
+      "live": 8900000,
+      "playhead": 900000
+    }
+  },
+  {
+    "at_ms": 9000,
+    "event": {
+      "type": "clock",
+      "live": 9000000,
+      "playhead": 1000000
+    }
+  },
+  {
+    "at_ms": 9100,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "to",
+          "span": {
+            "start": 8420000,
+            "end": 8710000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 9100,
+    "event": {
+      "type": "clock",
+      "live": 9100000,
+      "playhead": 1100000
+    }
+  },
+  {
+    "at_ms": 9200,
+    "event": {
+      "type": "clock",
+      "live": 9200000,
+      "playhead": 1200000
+    }
+  },
+  {
+    "at_ms": 9300,
+    "event": {
+      "type": "clock",
+      "live": 9300000,
+      "playhead": 1300000
+    }
+  },
+  {
+    "at_ms": 9400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "join",
+          "span": {
+            "start": 8750000,
+            "end": 9040000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 9400,
+    "event": {
+      "type": "clock",
+      "live": 9400000,
+      "playhead": 1400000
+    }
+  },
+  {
+    "at_ms": 9500,
+    "event": {
+      "type": "clock",
+      "live": 9500000,
+      "playhead": 1500000
+    }
+  },
+  {
+    "at_ms": 9600,
+    "event": {
+      "type": "clock",
+      "live": 9600000,
+      "playhead": 1600000
+    }
+  },
+  {
+    "at_ms": 9700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "the",
+          "span": {
+            "start": 9080000,
+            "end": 9370000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 9700,
+    "event": {
+      "type": "clock",
+      "live": 9700000,
+      "playhead": 1700000
+    }
+  },
+  {
+    "at_ms": 9800,
+    "event": {
+      "type": "clock",
+      "live": 9800000,
+      "playhead": 1800000
+    }
+  },
+  {
+    "at_ms": 9900,
+    "event": {
+      "type": "clock",
+      "live": 9900000,
+      "playhead": 1900000
+    }
+  },
+  {
+    "at_ms": 10000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "squad",
+          "span": {
+            "start": 9410000,
+            "end": 9700000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 10000,
+    "event": {
+      "type": "clock",
+      "live": 10000000,
+      "playhead": 2000000
+    }
+  },
+  {
+    "at_ms": 10100,
+    "event": {
+      "type": "clock",
+      "live": 10100000,
+      "playhead": 2100000
+    }
+  },
+  {
+    "at_ms": 10200,
+    "event": {
+      "type": "clock",
+      "live": 10200000,
+      "playhead": 2200000
+    }
+  },
+  {
+    "at_ms": 10300,
+    "event": {
+      "type": "clock",
+      "live": 10300000,
+      "playhead": 2300000
+    }
+  },
+  {
+    "at_ms": 10400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "text",
+          "span": {
+            "start": 9740000,
+            "end": 10030000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 10400,
+    "event": {
+      "type": "clock",
+      "live": 10400000,
+      "playhead": 2400000
+    }
+  },
+  {
+    "at_ms": 10500,
+    "event": {
+      "type": "clock",
+      "live": 10500000,
+      "playhead": 2500000
+    }
+  },
+  {
+    "at_ms": 10600,
+    "event": {
+      "type": "clock",
+      "live": 10600000,
+      "playhead": 2600000
+    }
+  },
+  {
+    "at_ms": 10700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "me",
+          "span": {
+            "start": 10070000,
+            "end": 10360000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 10700,
+    "event": {
+      "type": "clock",
+      "live": 10700000,
+      "playhead": 2700000
+    }
+  },
+  {
+    "at_ms": 10800,
+    "event": {
+      "type": "clock",
+      "live": 10800000,
+      "playhead": 2800000
+    }
+  },
+  {
+    "at_ms": 10900,
+    "event": {
+      "type": "clock",
+      "live": 10900000,
+      "playhead": 2900000
+    }
+  },
+  {
+    "at_ms": 11000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "at",
+          "span": {
+            "start": 10400000,
+            "end": 10690000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 11000,
+    "event": {
+      "type": "clock",
+      "live": 11000000,
+      "playhead": 3000000
+    }
+  },
+  {
+    "at_ms": 11100,
+    "event": {
+      "type": "clock",
+      "live": 11100000,
+      "playhead": 3100000
+    }
+  },
+  {
+    "at_ms": 11200,
+    "event": {
+      "type": "clock",
+      "live": 11200000,
+      "playhead": 3200000
+    }
+  },
+  {
+    "at_ms": 11300,
+    "event": {
+      "type": "clock",
+      "live": 11300000,
+      "playhead": 3300000
+    }
+  },
+  {
+    "at_ms": 11400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "631-555-0123",
+          "span": {
+            "start": 10730000,
+            "end": 11020000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 11400,
+    "event": {
+      "type": "redaction_upserted",
+      "redaction": {
+        "id": 2,
+        "category": "spoken_pii",
+        "mode": "apply",
+        "action": "mute",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 10580000,
+          "end": 11170000
+        },
+        "status": "pending",
+        "confidence": 0.92,
+        "sources": [
+          "pii"
+        ],
+        "reasons": [
+          "Phone number said on stream"
+        ],
+        "evidence": [
+          "63••••••••••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 11400,
+    "event": {
+      "type": "clock",
+      "live": 11400000,
+      "playhead": 3400000
+    }
+  },
+  {
+    "at_ms": 11500,
+    "event": {
+      "type": "clock",
+      "live": 11500000,
+      "playhead": 3500000
+    }
+  },
+  {
+    "at_ms": 11600,
+    "event": {
+      "type": "clock",
+      "live": 11600000,
+      "playhead": 3600000
+    }
+  },
+  {
+    "at_ms": 11700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "and",
+          "span": {
+            "start": 11060000,
+            "end": 11350000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 11700,
+    "event": {
+      "type": "clock",
+      "live": 11700000,
+      "playhead": 3700000
+    }
+  },
+  {
+    "at_ms": 11800,
+    "event": {
+      "type": "clock",
+      "live": 11800000,
+      "playhead": 3800000
+    }
+  },
+  {
+    "at_ms": 11900,
+    "event": {
+      "type": "clock",
+      "live": 11900000,
+      "playhead": 3900000
+    }
+  },
+  {
+    "at_ms": 12000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "I'll",
+          "span": {
+            "start": 11390000,
+            "end": 11680000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 12000,
+    "event": {
+      "type": "clock",
+      "live": 12000000,
+      "playhead": 4000000
+    }
+  },
+  {
+    "at_ms": 12100,
+    "event": {
+      "type": "clock",
+      "live": 12100000,
+      "playhead": 4100000
+    }
+  },
+  {
+    "at_ms": 12200,
+    "event": {
+      "type": "clock",
+      "live": 12200000,
+      "playhead": 4200000
+    }
+  },
+  {
+    "at_ms": 12300,
+    "event": {
+      "type": "clock",
+      "live": 12300000,
+      "playhead": 4300000
+    }
+  },
+  {
+    "at_ms": 12400,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "add",
+          "span": {
+            "start": 11720000,
+            "end": 12010000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 12400,
+    "event": {
+      "type": "clock",
+      "live": 12400000,
+      "playhead": 4400000
+    }
+  },
+  {
+    "at_ms": 12500,
+    "event": {
+      "type": "clock",
+      "live": 12500000,
+      "playhead": 4500000
+    }
+  },
+  {
+    "at_ms": 12600,
+    "event": {
+      "type": "clock",
+      "live": 12600000,
+      "playhead": 4600000
+    }
+  },
+  {
+    "at_ms": 12700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "you",
+          "span": {
+            "start": 12050000,
+            "end": 12340000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 12700,
+    "event": {
+      "type": "clock",
+      "live": 12700000,
+      "playhead": 4700000
+    }
+  },
+  {
+    "at_ms": 12800,
+    "event": {
+      "type": "clock",
+      "live": 12800000,
+      "playhead": 4800000
+    }
+  },
+  {
+    "at_ms": 12900,
+    "event": {
+      "type": "clock",
+      "live": 12900000,
+      "playhead": 4900000
+    }
+  },
+  {
+    "at_ms": 13000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "shoutout",
+          "span": {
+            "start": 12380000,
+            "end": 12670000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 13000,
+    "event": {
+      "type": "clock",
+      "live": 13000000,
+      "playhead": 5000000
+    }
+  },
+  {
+    "at_ms": 13100,
+    "event": {
+      "type": "clock",
+      "live": 13100000,
+      "playhead": 5100000
+    }
+  },
+  {
+    "at_ms": 13200,
+    "event": {
+      "type": "clock",
+      "live": 13200000,
+      "playhead": 5200000
+    }
+  },
+  {
+    "at_ms": 13300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "to",
+          "span": {
+            "start": 12710000,
+            "end": 13000000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 13300,
+    "event": {
+      "type": "clock",
+      "live": 13300000,
+      "playhead": 5300000
+    }
+  },
+  {
+    "at_ms": 13400,
+    "event": {
+      "type": "clock",
+      "live": 13400000,
+      "playhead": 5400000
+    }
+  },
+  {
+    "at_ms": 13500,
+    "event": {
+      "type": "clock",
+      "live": 13500000,
+      "playhead": 5500000
+    }
+  },
+  {
+    "at_ms": 13600,
+    "event": {
+      "type": "clock",
+      "live": 13600000,
+      "playhead": 5600000
+    }
+  },
+  {
+    "at_ms": 13700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "my",
+          "span": {
+            "start": 13040000,
+            "end": 13330000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 13700,
+    "event": {
+      "type": "clock",
+      "live": 13700000,
+      "playhead": 5700000
+    }
+  },
+  {
+    "at_ms": 13800,
+    "event": {
+      "type": "clock",
+      "live": 13800000,
+      "playhead": 5800000
+    }
+  },
+  {
+    "at_ms": 13900,
+    "event": {
+      "type": "redaction_aired",
+      "redaction": {
+        "id": 1,
+        "category": "profanity",
+        "mode": "apply",
+        "action": "bleep",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 5370000,
+          "end": 5820000
+        },
+        "status": "pending",
+        "confidence": 0.92,
+        "sources": [
+          "wordlist"
+        ],
+        "reasons": [
+          "Profanity"
+        ],
+        "evidence": [
+          "f•••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 13900,
+    "event": {
+      "type": "clock",
+      "live": 13900000,
+      "playhead": 5900000
+    }
+  },
+  {
+    "at_ms": 14000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "old",
+          "span": {
+            "start": 13370000,
+            "end": 13660000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 14000,
+    "event": {
+      "type": "clock",
+      "live": 14000000,
+      "playhead": 6000000
+    }
+  },
+  {
+    "at_ms": 14100,
+    "event": {
+      "type": "clock",
+      "live": 14100000,
+      "playhead": 6100000
+    }
+  },
+  {
+    "at_ms": 14200,
+    "event": {
+      "type": "clock",
+      "live": 14200000,
+      "playhead": 6200000
+    }
+  },
+  {
+    "at_ms": 14300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "school",
+          "span": {
+            "start": 13700000,
+            "end": 13990000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 14300,
+    "event": {
+      "type": "clock",
+      "live": 14300000,
+      "playhead": 6300000
+    }
+  },
+  {
+    "at_ms": 14400,
+    "event": {
+      "type": "clock",
+      "live": 14400000,
+      "playhead": 6400000
+    }
+  },
+  {
+    "at_ms": 14500,
+    "event": {
+      "type": "clock",
+      "live": 14500000,
+      "playhead": 6500000
+    }
+  },
+  {
+    "at_ms": 14600,
+    "event": {
+      "type": "clock",
+      "live": 14600000,
+      "playhead": 6600000
+    }
+  },
+  {
+    "at_ms": 14700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "Springfield",
+          "span": {
+            "start": 14030000,
+            "end": 14320000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 14700,
+    "event": {
+      "type": "clock",
+      "live": 14700000,
+      "playhead": 6700000
+    }
+  },
+  {
+    "at_ms": 14800,
+    "event": {
+      "type": "clock",
+      "live": 14800000,
+      "playhead": 6800000
+    }
+  },
+  {
+    "at_ms": 14900,
+    "event": {
+      "type": "clock",
+      "live": 14900000,
+      "playhead": 6900000
+    }
+  },
+  {
+    "at_ms": 15000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "High",
+          "span": {
+            "start": 14360000,
+            "end": 14650000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 15000,
+    "event": {
+      "type": "redaction_upserted",
+      "redaction": {
+        "id": 3,
+        "category": "spoken_pii",
+        "mode": "apply",
+        "action": "mute",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 13880000,
+          "end": 14800000
+        },
+        "status": "pending",
+        "confidence": 0.92,
+        "sources": [
+          "private_terms"
+        ],
+        "reasons": [
+          "Private term said on stream"
+        ],
+        "evidence": [
+          "sp••••••••••••••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 15000,
+    "event": {
+      "type": "clock",
+      "live": 15000000,
+      "playhead": 7000000
+    }
+  },
+  {
+    "at_ms": 15100,
+    "event": {
+      "type": "clock",
+      "live": 15100000,
+      "playhead": 7100000
+    }
+  },
+  {
+    "at_ms": 15200,
+    "event": {
+      "type": "clock",
+      "live": 15200000,
+      "playhead": 7200000
+    }
+  },
+  {
+    "at_ms": 15300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "by",
+          "span": {
+            "start": 14690000,
+            "end": 14980000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 15300,
+    "event": {
+      "type": "clock",
+      "live": 15300000,
+      "playhead": 7300000
+    }
+  },
+  {
+    "at_ms": 15400,
+    "event": {
+      "type": "clock",
+      "live": 15400000,
+      "playhead": 7400000
+    }
+  },
+  {
+    "at_ms": 15500,
+    "event": {
+      "type": "clock",
+      "live": 15500000,
+      "playhead": 7500000
+    }
+  },
+  {
+    "at_ms": 15600,
+    "event": {
+      "type": "clock",
+      "live": 15600000,
+      "playhead": 7600000
+    }
+  },
+  {
+    "at_ms": 15700,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "the",
+          "span": {
+            "start": 15020000,
+            "end": 15310000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 15700,
+    "event": {
+      "type": "clock",
+      "live": 15700000,
+      "playhead": 7700000
+    }
+  },
+  {
+    "at_ms": 15800,
+    "event": {
+      "type": "clock",
+      "live": 15800000,
+      "playhead": 7800000
+    }
+  },
+  {
+    "at_ms": 15900,
+    "event": {
+      "type": "clock",
+      "live": 15900000,
+      "playhead": 7900000
+    }
+  },
+  {
+    "at_ms": 16000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "way",
+          "span": {
+            "start": 15350000,
+            "end": 15640000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 16000,
+    "event": {
+      "type": "clock",
+      "live": 16000000,
+      "playhead": 8000000
+    }
+  },
+  {
+    "at_ms": 16100,
+    "event": {
+      "type": "clock",
+      "live": 16100000,
+      "playhead": 8100000
+    }
+  },
+  {
+    "at_ms": 16200,
+    "event": {
+      "type": "clock",
+      "live": 16200000,
+      "playhead": 8200000
+    }
+  },
+  {
+    "at_ms": 16300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "and",
+          "span": {
+            "start": 15680000,
+            "end": 15970000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 16300,
+    "event": {
+      "type": "clock",
+      "live": 16300000,
+      "playhead": 8300000
+    }
+  },
+  {
+    "at_ms": 16400,
+    "event": {
+      "type": "clock",
+      "live": 16400000,
+      "playhead": 8400000
+    }
+  },
+  {
+    "at_ms": 16500,
+    "event": {
+      "type": "clock",
+      "live": 16500000,
+      "playhead": 8500000
+    }
+  },
+  {
+    "at_ms": 16600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "honestly",
+          "span": {
+            "start": 16010000,
+            "end": 16300000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 16600,
+    "event": {
+      "type": "clock",
+      "live": 16600000,
+      "playhead": 8600000
+    }
+  },
+  {
+    "at_ms": 16700,
+    "event": {
+      "type": "clock",
+      "live": 16700000,
+      "playhead": 8700000
+    }
+  },
+  {
+    "at_ms": 16800,
+    "event": {
+      "type": "clock",
+      "live": 16800000,
+      "playhead": 8800000
+    }
+  },
+  {
+    "at_ms": 16900,
+    "event": {
+      "type": "clock",
+      "live": 16900000,
+      "playhead": 8900000
+    }
+  },
+  {
+    "at_ms": 17000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "that",
+          "span": {
+            "start": 16340000,
+            "end": 16630000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 17000,
+    "event": {
+      "type": "clock",
+      "live": 17000000,
+      "playhead": 9000000
+    }
+  },
+  {
+    "at_ms": 17100,
+    "event": {
+      "type": "clock",
+      "live": 17100000,
+      "playhead": 9100000
+    }
+  },
+  {
+    "at_ms": 17200,
+    "event": {
+      "type": "clock",
+      "live": 17200000,
+      "playhead": 9200000
+    }
+  },
+  {
+    "at_ms": 17300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "guy",
+          "span": {
+            "start": 16670000,
+            "end": 16960000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 17300,
+    "event": {
+      "type": "clock",
+      "live": 17300000,
+      "playhead": 9300000
+    }
+  },
+  {
+    "at_ms": 17400,
+    "event": {
+      "type": "clock",
+      "live": 17400000,
+      "playhead": 9400000
+    }
+  },
+  {
+    "at_ms": 17500,
+    "event": {
+      "type": "clock",
+      "live": 17500000,
+      "playhead": 9500000
+    }
+  },
+  {
+    "at_ms": 17600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "in",
+          "span": {
+            "start": 17000000,
+            "end": 17290000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 17600,
+    "event": {
+      "type": "clock",
+      "live": 17600000,
+      "playhead": 9600000
+    }
+  },
+  {
+    "at_ms": 17700,
+    "event": {
+      "type": "clock",
+      "live": 17700000,
+      "playhead": 9700000
+    }
+  },
+  {
+    "at_ms": 17800,
+    "event": {
+      "type": "clock",
+      "live": 17800000,
+      "playhead": 9800000
+    }
+  },
+  {
+    "at_ms": 17900,
+    "event": {
+      "type": "clock",
+      "live": 17900000,
+      "playhead": 9900000
+    }
+  },
+  {
+    "at_ms": 18000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "chat",
+          "span": {
+            "start": 17330000,
+            "end": 17620000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 18000,
+    "event": {
+      "type": "clock",
+      "live": 18000000,
+      "playhead": 10000000
+    }
+  },
+  {
+    "at_ms": 18100,
+    "event": {
+      "type": "clock",
+      "live": 18100000,
+      "playhead": 10100000
+    }
+  },
+  {
+    "at_ms": 18200,
+    "event": {
+      "type": "clock",
+      "live": 18200000,
+      "playhead": 10200000
+    }
+  },
+  {
+    "at_ms": 18300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "should",
+          "span": {
+            "start": 17660000,
+            "end": 17950000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 18300,
+    "event": {
+      "type": "clock",
+      "live": 18300000,
+      "playhead": 10300000
+    }
+  },
+  {
+    "at_ms": 18400,
+    "event": {
+      "type": "clock",
+      "live": 18400000,
+      "playhead": 10400000
+    }
+  },
+  {
+    "at_ms": 18500,
+    "event": {
+      "type": "clock",
+      "live": 18500000,
+      "playhead": 10500000
+    }
+  },
+  {
+    "at_ms": 18600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "get",
+          "span": {
+            "start": 17990000,
+            "end": 18280000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 18600,
+    "event": {
+      "type": "clock",
+      "live": 18600000,
+      "playhead": 10600000
+    }
+  },
+  {
+    "at_ms": 18700,
+    "event": {
+      "type": "clock",
+      "live": 18700000,
+      "playhead": 10700000
+    }
+  },
+  {
+    "at_ms": 18800,
+    "event": {
+      "type": "clock",
+      "live": 18800000,
+      "playhead": 10800000
+    }
+  },
+  {
+    "at_ms": 18900,
+    "event": {
+      "type": "clock",
+      "live": 18900000,
+      "playhead": 10900000
+    }
+  },
+  {
+    "at_ms": 19000,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "his",
+          "span": {
+            "start": 18320000,
+            "end": 18610000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 19000,
+    "event": {
+      "type": "clock",
+      "live": 19000000,
+      "playhead": 11000000
+    }
+  },
+  {
+    "at_ms": 19100,
+    "event": {
+      "type": "clock",
+      "live": 19100000,
+      "playhead": 11100000
+    }
+  },
+  {
+    "at_ms": 19200,
+    "event": {
+      "type": "redaction_aired",
+      "redaction": {
+        "id": 2,
+        "category": "spoken_pii",
+        "mode": "apply",
+        "action": "mute",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 10580000,
+          "end": 11170000
+        },
+        "status": "pending",
+        "confidence": 0.92,
+        "sources": [
+          "pii"
+        ],
+        "reasons": [
+          "Phone number said on stream"
+        ],
+        "evidence": [
+          "63••••••••••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 19200,
+    "event": {
+      "type": "clock",
+      "live": 19200000,
+      "playhead": 11200000
+    }
+  },
+  {
+    "at_ms": 19300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "server",
+          "span": {
+            "start": 18650000,
+            "end": 18940000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 19300,
+    "event": {
+      "type": "clock",
+      "live": 19300000,
+      "playhead": 11300000
+    }
+  },
+  {
+    "at_ms": 19400,
+    "event": {
+      "type": "clock",
+      "live": 19400000,
+      "playhead": 11400000
+    }
+  },
+  {
+    "at_ms": 19500,
+    "event": {
+      "type": "clock",
+      "live": 19500000,
+      "playhead": 11500000
+    }
+  },
+  {
+    "at_ms": 19600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "ddosed",
+          "span": {
+            "start": 18980000,
+            "end": 19270000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 19600,
+    "event": {
+      "type": "clock",
+      "live": 19600000,
+      "playhead": 11600000
+    }
+  },
+  {
+    "at_ms": 19700,
+    "event": {
+      "type": "clock",
+      "live": 19700000,
+      "playhead": 11700000
+    }
+  },
+  {
+    "at_ms": 19800,
+    "event": {
+      "type": "clock",
+      "live": 19800000,
+      "playhead": 11800000
+    }
+  },
+  {
+    "at_ms": 19900,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "lmao",
+          "span": {
+            "start": 19310000,
+            "end": 19600000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 19900,
+    "event": {
+      "type": "clock",
+      "live": 19900000,
+      "playhead": 11900000
+    }
+  },
+  {
+    "at_ms": 20000,
+    "event": {
+      "type": "clock",
+      "live": 20000000,
+      "playhead": 12000000
+    }
+  },
+  {
+    "at_ms": 20100,
+    "event": {
+      "type": "clock",
+      "live": 20100000,
+      "playhead": 12100000
+    }
+  },
+  {
+    "at_ms": 20200,
+    "event": {
+      "type": "clock",
+      "live": 20200000,
+      "playhead": 12200000
+    }
+  },
+  {
+    "at_ms": 20300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "okay",
+          "span": {
+            "start": 19640000,
+            "end": 19930000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 20300,
+    "event": {
+      "type": "clock",
+      "live": 20300000,
+      "playhead": 12300000
+    }
+  },
+  {
+    "at_ms": 20400,
+    "event": {
+      "type": "clock",
+      "live": 20400000,
+      "playhead": 12400000
+    }
+  },
+  {
+    "at_ms": 20500,
+    "event": {
+      "type": "clock",
+      "live": 20500000,
+      "playhead": 12500000
+    }
+  },
+  {
+    "at_ms": 20600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "let",
+          "span": {
+            "start": 19970000,
+            "end": 20260000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 20600,
+    "event": {
+      "type": "clock",
+      "live": 20600000,
+      "playhead": 12600000
+    }
+  },
+  {
+    "at_ms": 20700,
+    "event": {
+      "type": "clock",
+      "live": 20700000,
+      "playhead": 12700000
+    }
+  },
+  {
+    "at_ms": 20800,
+    "event": {
+      "type": "clock",
+      "live": 20800000,
+      "playhead": 12800000
+    }
+  },
+  {
+    "at_ms": 20900,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "me",
+          "span": {
+            "start": 20300000,
+            "end": 20590000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 20900,
+    "event": {
+      "type": "clock",
+      "live": 20900000,
+      "playhead": 12900000
+    }
+  },
+  {
+    "at_ms": 21000,
+    "event": {
+      "type": "redaction_upserted",
+      "redaction": {
+        "id": 4,
+        "category": "tos_risk",
+        "mode": "suggest",
+        "action": "mute",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 17130000,
+          "end": 19470000
+        },
+        "status": "pending",
+        "confidence": 0.86,
+        "sources": [
+          "context_llm"
+        ],
+        "reasons": [
+          "Encouraging an attack on a chatter (demo judge)"
+        ],
+        "evidence": []
+      }
+    }
+  },
+  {
+    "at_ms": 21000,
+    "event": {
+      "type": "clock",
+      "live": 21000000,
+      "playhead": 13000000
+    }
+  },
+  {
+    "at_ms": 21100,
+    "event": {
+      "type": "clock",
+      "live": 21100000,
+      "playhead": 13100000
+    }
+  },
+  {
+    "at_ms": 21200,
+    "event": {
+      "type": "clock",
+      "live": 21200000,
+      "playhead": 13200000
+    }
+  },
+  {
+    "at_ms": 21300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "grab",
+          "span": {
+            "start": 20630000,
+            "end": 20920000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 21300,
+    "event": {
+      "type": "clock",
+      "live": 21300000,
+      "playhead": 13300000
+    }
+  },
+  {
+    "at_ms": 21400,
+    "event": {
+      "type": "clock",
+      "live": 21400000,
+      "playhead": 13400000
+    }
+  },
+  {
+    "at_ms": 21500,
+    "event": {
+      "type": "clock",
+      "live": 21500000,
+      "playhead": 13500000
+    }
+  },
+  {
+    "at_ms": 21600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "my",
+          "span": {
+            "start": 20960000,
+            "end": 21250000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 21600,
+    "event": {
+      "type": "clock",
+      "live": 21600000,
+      "playhead": 13600000
+    }
+  },
+  {
+    "at_ms": 21700,
+    "event": {
+      "type": "clock",
+      "live": 21700000,
+      "playhead": 13700000
+    }
+  },
+  {
+    "at_ms": 21800,
+    "event": {
+      "type": "clock",
+      "live": 21800000,
+      "playhead": 13800000
+    }
+  },
+  {
+    "at_ms": 21900,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "API",
+          "span": {
+            "start": 21290000,
+            "end": 21580000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 21900,
+    "event": {
+      "type": "clock",
+      "live": 21900000,
+      "playhead": 13900000
+    }
+  },
+  {
+    "at_ms": 22000,
+    "event": {
+      "type": "clock",
+      "live": 22000000,
+      "playhead": 14000000
+    }
+  },
+  {
+    "at_ms": 22100,
+    "event": {
+      "type": "clock",
+      "live": 22100000,
+      "playhead": 14100000
+    }
+  },
+  {
+    "at_ms": 22200,
+    "event": {
+      "type": "clock",
+      "live": 22200000,
+      "playhead": 14200000
+    }
+  },
+  {
+    "at_ms": 22300,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "key",
+          "span": {
+            "start": 21620000,
+            "end": 21910000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 22300,
+    "event": {
+      "type": "clock",
+      "live": 22300000,
+      "playhead": 14300000
+    }
+  },
+  {
+    "at_ms": 22400,
+    "event": {
+      "type": "clock",
+      "live": 22400000,
+      "playhead": 14400000
+    }
+  },
+  {
+    "at_ms": 22500,
+    "event": {
+      "type": "clock",
+      "live": 22500000,
+      "playhead": 14500000
+    }
+  },
+  {
+    "at_ms": 22600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "real",
+          "span": {
+            "start": 21950000,
+            "end": 22240000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 22600,
+    "event": {
+      "type": "clock",
+      "live": 22600000,
+      "playhead": 14600000
+    }
+  },
+  {
+    "at_ms": 22700,
+    "event": {
+      "type": "clock",
+      "live": 22700000,
+      "playhead": 14700000
+    }
+  },
+  {
+    "at_ms": 22800,
+    "event": {
+      "type": "redaction_aired",
+      "redaction": {
+        "id": 3,
+        "category": "spoken_pii",
+        "mode": "apply",
+        "action": "mute",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 13880000,
+          "end": 14800000
+        },
+        "status": "pending",
+        "confidence": 0.92,
+        "sources": [
+          "private_terms"
+        ],
+        "reasons": [
+          "Private term said on stream"
+        ],
+        "evidence": [
+          "sp••••••••••••••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 22800,
+    "event": {
+      "type": "clock",
+      "live": 22800000,
+      "playhead": 14800000
+    }
+  },
+  {
+    "at_ms": 22900,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "quick",
+          "span": {
+            "start": 22280000,
+            "end": 22570000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 22900,
+    "event": {
+      "type": "clock",
+      "live": 22900000,
+      "playhead": 14900000
+    }
+  },
+  {
+    "at_ms": 23000,
+    "event": {
+      "type": "clock",
+      "live": 23000000,
+      "playhead": 15000000
+    }
+  },
+  {
+    "at_ms": 23100,
+    "event": {
+      "type": "clock",
+      "live": 23100000,
+      "playhead": 15100000
+    }
+  },
+  {
+    "at_ms": 23200,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "for",
+          "span": {
+            "start": 22610000,
+            "end": 22900000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 23200,
+    "event": {
+      "type": "clock",
+      "live": 23200000,
+      "playhead": 15200000
+    }
+  },
+  {
+    "at_ms": 23300,
+    "event": {
+      "type": "clock",
+      "live": 23300000,
+      "playhead": 15300000
+    }
+  },
+  {
+    "at_ms": 23400,
+    "event": {
+      "type": "clock",
+      "live": 23400000,
+      "playhead": 15400000
+    }
+  },
+  {
+    "at_ms": 23500,
+    "event": {
+      "type": "clock",
+      "live": 23500000,
+      "playhead": 15500000
+    }
+  },
+  {
+    "at_ms": 23600,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "the",
+          "span": {
+            "start": 22940000,
+            "end": 23230000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 23600,
+    "event": {
+      "type": "clock",
+      "live": 23600000,
+      "playhead": 15600000
+    }
+  },
+  {
+    "at_ms": 23700,
+    "event": {
+      "type": "clock",
+      "live": 23700000,
+      "playhead": 15700000
+    }
+  },
+  {
+    "at_ms": 23800,
+    "event": {
+      "type": "clock",
+      "live": 23800000,
+      "playhead": 15800000
+    }
+  },
+  {
+    "at_ms": 23900,
+    "event": {
+      "type": "transcript",
+      "words": [
+        {
+          "text": "bot",
+          "span": {
+            "start": 23270000,
+            "end": 23560000
+          },
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  {
+    "at_ms": 23900,
+    "event": {
+      "type": "clock",
+      "live": 23900000,
+      "playhead": 15900000
+    }
+  },
+  {
+    "at_ms": 24000,
+    "event": {
+      "type": "clock",
+      "live": 24000000,
+      "playhead": 16000000
+    }
+  },
+  {
+    "at_ms": 24100,
+    "event": {
+      "type": "clock",
+      "live": 24100000,
+      "playhead": 16100000
+    }
+  },
+  {
+    "at_ms": 24200,
+    "event": {
+      "type": "clock",
+      "live": 24200000,
+      "playhead": 16200000
+    }
+  },
+  {
+    "at_ms": 24300,
+    "event": {
+      "type": "clock",
+      "live": 24300000,
+      "playhead": 16300000
+    }
+  },
+  {
+    "at_ms": 24400,
+    "event": {
+      "type": "clock",
+      "live": 24400000,
+      "playhead": 16400000
+    }
+  },
+  {
+    "at_ms": 24500,
+    "event": {
+      "type": "clock",
+      "live": 24500000,
+      "playhead": 16500000
+    }
+  },
+  {
+    "at_ms": 24600,
+    "event": {
+      "type": "clock",
+      "live": 24600000,
+      "playhead": 16600000
+    }
+  },
+  {
+    "at_ms": 24700,
+    "event": {
+      "type": "clock",
+      "live": 24700000,
+      "playhead": 16700000
+    }
+  },
+  {
+    "at_ms": 24800,
+    "event": {
+      "type": "clock",
+      "live": 24800000,
+      "playhead": 16800000
+    }
+  },
+  {
+    "at_ms": 24900,
+    "event": {
+      "type": "clock",
+      "live": 24900000,
+      "playhead": 16900000
+    }
+  },
+  {
+    "at_ms": 25000,
+    "event": {
+      "type": "clock",
+      "live": 25000000,
+      "playhead": 17000000
+    }
+  },
+  {
+    "at_ms": 25100,
+    "event": {
+      "type": "clock",
+      "live": 25100000,
+      "playhead": 17100000
+    }
+  },
+  {
+    "at_ms": 25200,
+    "event": {
+      "type": "clock",
+      "live": 25200000,
+      "playhead": 17200000
+    }
+  },
+  {
+    "at_ms": 25300,
+    "event": {
+      "type": "clock",
+      "live": 25300000,
+      "playhead": 17300000
+    }
+  },
+  {
+    "at_ms": 25400,
+    "event": {
+      "type": "clock",
+      "live": 25400000,
+      "playhead": 17400000
+    }
+  },
+  {
+    "at_ms": 25500,
+    "event": {
+      "type": "clock",
+      "live": 25500000,
+      "playhead": 17500000
+    }
+  },
+  {
+    "at_ms": 25600,
+    "event": {
+      "type": "clock",
+      "live": 25600000,
+      "playhead": 17600000
+    }
+  },
+  {
+    "at_ms": 25700,
+    "event": {
+      "type": "clock",
+      "live": 25700000,
+      "playhead": 17700000
+    }
+  },
+  {
+    "at_ms": 25800,
+    "event": {
+      "type": "clock",
+      "live": 25800000,
+      "playhead": 17800000
+    }
+  },
+  {
+    "at_ms": 25900,
+    "event": {
+      "type": "clock",
+      "live": 25900000,
+      "playhead": 17900000
+    }
+  },
+  {
+    "at_ms": 26000,
+    "event": {
+      "type": "redaction_upserted",
+      "redaction": {
+        "id": 5,
+        "category": "screen_secret",
+        "mode": "apply",
+        "action": "blur",
+        "target": {
+          "kind": "video",
+          "region": {
+            "x": 0.54,
+            "y": 0.81,
+            "w": 0.42000002,
+            "h": 0.06999999
+          }
+        },
+        "span": {
+          "start": 25250000,
+          "end": 29750000
+        },
+        "status": "pending",
+        "confidence": 0.9405,
+        "sources": [
+          "secret"
+        ],
+        "reasons": [
+          "Twitch stream key visible on screen"
+        ],
+        "evidence": [
+          "li••••••••••••••••••••••••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 26000,
+    "event": {
+      "type": "clock",
+      "live": 26000000,
+      "playhead": 18000000
+    }
+  },
+  {
+    "at_ms": 26100,
+    "event": {
+      "type": "clock",
+      "live": 26100000,
+      "playhead": 18100000
+    }
+  },
+  {
+    "at_ms": 26200,
+    "event": {
+      "type": "clock",
+      "live": 26200000,
+      "playhead": 18200000
+    }
+  },
+  {
+    "at_ms": 26300,
+    "event": {
+      "type": "clock",
+      "live": 26300000,
+      "playhead": 18300000
+    }
+  },
+  {
+    "at_ms": 26400,
+    "event": {
+      "type": "clock",
+      "live": 26400000,
+      "playhead": 18400000
+    }
+  },
+  {
+    "at_ms": 26500,
+    "event": {
+      "type": "clock",
+      "live": 26500000,
+      "playhead": 18500000
+    }
+  },
+  {
+    "at_ms": 26600,
+    "event": {
+      "type": "clock",
+      "live": 26600000,
+      "playhead": 18600000
+    }
+  },
+  {
+    "at_ms": 26700,
+    "event": {
+      "type": "clock",
+      "live": 26700000,
+      "playhead": 18700000
+    }
+  },
+  {
+    "at_ms": 26800,
+    "event": {
+      "type": "clock",
+      "live": 26800000,
+      "playhead": 18800000
+    }
+  },
+  {
+    "at_ms": 26900,
+    "event": {
+      "type": "clock",
+      "live": 26900000,
+      "playhead": 18900000
+    }
+  },
+  {
+    "at_ms": 27000,
+    "event": {
+      "type": "clock",
+      "live": 27000000,
+      "playhead": 19000000
+    }
+  },
+  {
+    "at_ms": 27100,
+    "event": {
+      "type": "clock",
+      "live": 27100000,
+      "playhead": 19100000
+    }
+  },
+  {
+    "at_ms": 27200,
+    "event": {
+      "type": "clock",
+      "live": 27200000,
+      "playhead": 19200000
+    }
+  },
+  {
+    "at_ms": 27300,
+    "event": {
+      "type": "clock",
+      "live": 27300000,
+      "playhead": 19300000
+    }
+  },
+  {
+    "at_ms": 27400,
+    "event": {
+      "type": "clock",
+      "live": 27400000,
+      "playhead": 19400000
+    }
+  },
+  {
+    "at_ms": 27500,
+    "event": {
+      "type": "redaction_aired",
+      "redaction": {
+        "id": 4,
+        "category": "tos_risk",
+        "mode": "suggest",
+        "action": "mute",
+        "target": {
+          "kind": "audio"
+        },
+        "span": {
+          "start": 17130000,
+          "end": 19470000
+        },
+        "status": "pending",
+        "confidence": 0.86,
+        "sources": [
+          "context_llm"
+        ],
+        "reasons": [
+          "Encouraging an attack on a chatter (demo judge)"
+        ],
+        "evidence": []
+      }
+    }
+  },
+  {
+    "at_ms": 27500,
+    "event": {
+      "type": "clock",
+      "live": 27500000,
+      "playhead": 19500000
+    }
+  },
+  {
+    "at_ms": 27600,
+    "event": {
+      "type": "clock",
+      "live": 27600000,
+      "playhead": 19600000
+    }
+  },
+  {
+    "at_ms": 27700,
+    "event": {
+      "type": "clock",
+      "live": 27700000,
+      "playhead": 19700000
+    }
+  },
+  {
+    "at_ms": 27800,
+    "event": {
+      "type": "clock",
+      "live": 27800000,
+      "playhead": 19800000
+    }
+  },
+  {
+    "at_ms": 27900,
+    "event": {
+      "type": "clock",
+      "live": 27900000,
+      "playhead": 19900000
+    }
+  },
+  {
+    "at_ms": 28000,
+    "event": {
+      "type": "clock",
+      "live": 28000000,
+      "playhead": 20000000
+    }
+  },
+  {
+    "at_ms": 28100,
+    "event": {
+      "type": "clock",
+      "live": 28100000,
+      "playhead": 20100000
+    }
+  },
+  {
+    "at_ms": 28200,
+    "event": {
+      "type": "clock",
+      "live": 28200000,
+      "playhead": 20200000
+    }
+  },
+  {
+    "at_ms": 28300,
+    "event": {
+      "type": "clock",
+      "live": 28300000,
+      "playhead": 20300000
+    }
+  },
+  {
+    "at_ms": 28400,
+    "event": {
+      "type": "clock",
+      "live": 28400000,
+      "playhead": 20400000
+    }
+  },
+  {
+    "at_ms": 28500,
+    "event": {
+      "type": "clock",
+      "live": 28500000,
+      "playhead": 20500000
+    }
+  },
+  {
+    "at_ms": 28600,
+    "event": {
+      "type": "clock",
+      "live": 28600000,
+      "playhead": 20600000
+    }
+  },
+  {
+    "at_ms": 28700,
+    "event": {
+      "type": "clock",
+      "live": 28700000,
+      "playhead": 20700000
+    }
+  },
+  {
+    "at_ms": 28800,
+    "event": {
+      "type": "clock",
+      "live": 28800000,
+      "playhead": 20800000
+    }
+  },
+  {
+    "at_ms": 28900,
+    "event": {
+      "type": "clock",
+      "live": 28900000,
+      "playhead": 20900000
+    }
+  },
+  {
+    "at_ms": 29000,
+    "event": {
+      "type": "clock",
+      "live": 29000000,
+      "playhead": 21000000
+    }
+  },
+  {
+    "at_ms": 29100,
+    "event": {
+      "type": "clock",
+      "live": 29100000,
+      "playhead": 21100000
+    }
+  },
+  {
+    "at_ms": 29200,
+    "event": {
+      "type": "clock",
+      "live": 29200000,
+      "playhead": 21200000
+    }
+  },
+  {
+    "at_ms": 29300,
+    "event": {
+      "type": "clock",
+      "live": 29300000,
+      "playhead": 21300000
+    }
+  },
+  {
+    "at_ms": 29400,
+    "event": {
+      "type": "clock",
+      "live": 29400000,
+      "playhead": 21400000
+    }
+  },
+  {
+    "at_ms": 29500,
+    "event": {
+      "type": "clock",
+      "live": 29500000,
+      "playhead": 21500000
+    }
+  },
+  {
+    "at_ms": 29600,
+    "event": {
+      "type": "clock",
+      "live": 29600000,
+      "playhead": 21600000
+    }
+  },
+  {
+    "at_ms": 29700,
+    "event": {
+      "type": "clock",
+      "live": 29700000,
+      "playhead": 21700000
+    }
+  },
+  {
+    "at_ms": 29800,
+    "event": {
+      "type": "clock",
+      "live": 29800000,
+      "playhead": 21800000
+    }
+  },
+  {
+    "at_ms": 29900,
+    "event": {
+      "type": "clock",
+      "live": 29900000,
+      "playhead": 21900000
+    }
+  },
+  {
+    "at_ms": 30000,
+    "event": {
+      "type": "clock",
+      "live": 30000000,
+      "playhead": 22000000
+    }
+  },
+  {
+    "at_ms": 30100,
+    "event": {
+      "type": "clock",
+      "live": 30100000,
+      "playhead": 22100000
+    }
+  },
+  {
+    "at_ms": 30200,
+    "event": {
+      "type": "clock",
+      "live": 30200000,
+      "playhead": 22200000
+    }
+  },
+  {
+    "at_ms": 30300,
+    "event": {
+      "type": "clock",
+      "live": 30300000,
+      "playhead": 22300000
+    }
+  },
+  {
+    "at_ms": 30400,
+    "event": {
+      "type": "clock",
+      "live": 30400000,
+      "playhead": 22400000
+    }
+  },
+  {
+    "at_ms": 30500,
+    "event": {
+      "type": "clock",
+      "live": 30500000,
+      "playhead": 22500000
+    }
+  },
+  {
+    "at_ms": 30600,
+    "event": {
+      "type": "clock",
+      "live": 30600000,
+      "playhead": 22600000
+    }
+  },
+  {
+    "at_ms": 30700,
+    "event": {
+      "type": "clock",
+      "live": 30700000,
+      "playhead": 22700000
+    }
+  },
+  {
+    "at_ms": 30800,
+    "event": {
+      "type": "clock",
+      "live": 30800000,
+      "playhead": 22800000
+    }
+  },
+  {
+    "at_ms": 30900,
+    "event": {
+      "type": "clock",
+      "live": 30900000,
+      "playhead": 22900000
+    }
+  },
+  {
+    "at_ms": 31000,
+    "event": {
+      "type": "clock",
+      "live": 31000000,
+      "playhead": 23000000
+    }
+  },
+  {
+    "at_ms": 31100,
+    "event": {
+      "type": "clock",
+      "live": 31100000,
+      "playhead": 23100000
+    }
+  },
+  {
+    "at_ms": 31200,
+    "event": {
+      "type": "clock",
+      "live": 31200000,
+      "playhead": 23200000
+    }
+  },
+  {
+    "at_ms": 31300,
+    "event": {
+      "type": "clock",
+      "live": 31300000,
+      "playhead": 23300000
+    }
+  },
+  {
+    "at_ms": 31400,
+    "event": {
+      "type": "clock",
+      "live": 31400000,
+      "playhead": 23400000
+    }
+  },
+  {
+    "at_ms": 31500,
+    "event": {
+      "type": "clock",
+      "live": 31500000,
+      "playhead": 23500000
+    }
+  },
+  {
+    "at_ms": 31600,
+    "event": {
+      "type": "clock",
+      "live": 31600000,
+      "playhead": 23600000
+    }
+  },
+  {
+    "at_ms": 31700,
+    "event": {
+      "type": "clock",
+      "live": 31700000,
+      "playhead": 23700000
+    }
+  },
+  {
+    "at_ms": 31800,
+    "event": {
+      "type": "clock",
+      "live": 31800000,
+      "playhead": 23800000
+    }
+  },
+  {
+    "at_ms": 31900,
+    "event": {
+      "type": "clock",
+      "live": 31900000,
+      "playhead": 23900000
+    }
+  },
+  {
+    "at_ms": 32000,
+    "event": {
+      "type": "clock",
+      "live": 32000000,
+      "playhead": 24000000
+    }
+  },
+  {
+    "at_ms": 32100,
+    "event": {
+      "type": "clock",
+      "live": 32100000,
+      "playhead": 24100000
+    }
+  },
+  {
+    "at_ms": 32200,
+    "event": {
+      "type": "clock",
+      "live": 32200000,
+      "playhead": 24200000
+    }
+  },
+  {
+    "at_ms": 32300,
+    "event": {
+      "type": "clock",
+      "live": 32300000,
+      "playhead": 24300000
+    }
+  },
+  {
+    "at_ms": 32400,
+    "event": {
+      "type": "clock",
+      "live": 32400000,
+      "playhead": 24400000
+    }
+  },
+  {
+    "at_ms": 32500,
+    "event": {
+      "type": "clock",
+      "live": 32500000,
+      "playhead": 24500000
+    }
+  },
+  {
+    "at_ms": 32600,
+    "event": {
+      "type": "clock",
+      "live": 32600000,
+      "playhead": 24600000
+    }
+  },
+  {
+    "at_ms": 32700,
+    "event": {
+      "type": "clock",
+      "live": 32700000,
+      "playhead": 24700000
+    }
+  },
+  {
+    "at_ms": 32800,
+    "event": {
+      "type": "clock",
+      "live": 32800000,
+      "playhead": 24800000
+    }
+  },
+  {
+    "at_ms": 32900,
+    "event": {
+      "type": "clock",
+      "live": 32900000,
+      "playhead": 24900000
+    }
+  },
+  {
+    "at_ms": 33000,
+    "event": {
+      "type": "clock",
+      "live": 33000000,
+      "playhead": 25000000
+    }
+  },
+  {
+    "at_ms": 33100,
+    "event": {
+      "type": "clock",
+      "live": 33100000,
+      "playhead": 25100000
+    }
+  },
+  {
+    "at_ms": 33200,
+    "event": {
+      "type": "clock",
+      "live": 33200000,
+      "playhead": 25200000
+    }
+  },
+  {
+    "at_ms": 33300,
+    "event": {
+      "type": "clock",
+      "live": 33300000,
+      "playhead": 25300000
+    }
+  },
+  {
+    "at_ms": 33400,
+    "event": {
+      "type": "clock",
+      "live": 33400000,
+      "playhead": 25400000
+    }
+  },
+  {
+    "at_ms": 33500,
+    "event": {
+      "type": "clock",
+      "live": 33500000,
+      "playhead": 25500000
+    }
+  },
+  {
+    "at_ms": 33600,
+    "event": {
+      "type": "clock",
+      "live": 33600000,
+      "playhead": 25600000
+    }
+  },
+  {
+    "at_ms": 33700,
+    "event": {
+      "type": "clock",
+      "live": 33700000,
+      "playhead": 25700000
+    }
+  },
+  {
+    "at_ms": 33800,
+    "event": {
+      "type": "clock",
+      "live": 33800000,
+      "playhead": 25800000
+    }
+  },
+  {
+    "at_ms": 33900,
+    "event": {
+      "type": "clock",
+      "live": 33900000,
+      "playhead": 25900000
+    }
+  },
+  {
+    "at_ms": 34000,
+    "event": {
+      "type": "clock",
+      "live": 34000000,
+      "playhead": 26000000
+    }
+  },
+  {
+    "at_ms": 34100,
+    "event": {
+      "type": "clock",
+      "live": 34100000,
+      "playhead": 26100000
+    }
+  },
+  {
+    "at_ms": 34200,
+    "event": {
+      "type": "clock",
+      "live": 34200000,
+      "playhead": 26200000
+    }
+  },
+  {
+    "at_ms": 34300,
+    "event": {
+      "type": "clock",
+      "live": 34300000,
+      "playhead": 26300000
+    }
+  },
+  {
+    "at_ms": 34400,
+    "event": {
+      "type": "clock",
+      "live": 34400000,
+      "playhead": 26400000
+    }
+  },
+  {
+    "at_ms": 34500,
+    "event": {
+      "type": "clock",
+      "live": 34500000,
+      "playhead": 26500000
+    }
+  },
+  {
+    "at_ms": 34600,
+    "event": {
+      "type": "clock",
+      "live": 34600000,
+      "playhead": 26600000
+    }
+  },
+  {
+    "at_ms": 34700,
+    "event": {
+      "type": "clock",
+      "live": 34700000,
+      "playhead": 26700000
+    }
+  },
+  {
+    "at_ms": 34800,
+    "event": {
+      "type": "clock",
+      "live": 34800000,
+      "playhead": 26800000
+    }
+  },
+  {
+    "at_ms": 34900,
+    "event": {
+      "type": "clock",
+      "live": 34900000,
+      "playhead": 26900000
+    }
+  },
+  {
+    "at_ms": 35000,
+    "event": {
+      "type": "clock",
+      "live": 35000000,
+      "playhead": 27000000
+    }
+  },
+  {
+    "at_ms": 35100,
+    "event": {
+      "type": "clock",
+      "live": 35100000,
+      "playhead": 27100000
+    }
+  },
+  {
+    "at_ms": 35200,
+    "event": {
+      "type": "clock",
+      "live": 35200000,
+      "playhead": 27200000
+    }
+  },
+  {
+    "at_ms": 35300,
+    "event": {
+      "type": "clock",
+      "live": 35300000,
+      "playhead": 27300000
+    }
+  },
+  {
+    "at_ms": 35400,
+    "event": {
+      "type": "clock",
+      "live": 35400000,
+      "playhead": 27400000
+    }
+  },
+  {
+    "at_ms": 35500,
+    "event": {
+      "type": "clock",
+      "live": 35500000,
+      "playhead": 27500000
+    }
+  },
+  {
+    "at_ms": 35600,
+    "event": {
+      "type": "clock",
+      "live": 35600000,
+      "playhead": 27600000
+    }
+  },
+  {
+    "at_ms": 35700,
+    "event": {
+      "type": "clock",
+      "live": 35700000,
+      "playhead": 27700000
+    }
+  },
+  {
+    "at_ms": 35800,
+    "event": {
+      "type": "clock",
+      "live": 35800000,
+      "playhead": 27800000
+    }
+  },
+  {
+    "at_ms": 35900,
+    "event": {
+      "type": "clock",
+      "live": 35900000,
+      "playhead": 27900000
+    }
+  },
+  {
+    "at_ms": 36000,
+    "event": {
+      "type": "clock",
+      "live": 36000000,
+      "playhead": 28000000
+    }
+  },
+  {
+    "at_ms": 36100,
+    "event": {
+      "type": "clock",
+      "live": 36100000,
+      "playhead": 28100000
+    }
+  },
+  {
+    "at_ms": 36200,
+    "event": {
+      "type": "clock",
+      "live": 36200000,
+      "playhead": 28200000
+    }
+  },
+  {
+    "at_ms": 36300,
+    "event": {
+      "type": "clock",
+      "live": 36300000,
+      "playhead": 28300000
+    }
+  },
+  {
+    "at_ms": 36400,
+    "event": {
+      "type": "clock",
+      "live": 36400000,
+      "playhead": 28400000
+    }
+  },
+  {
+    "at_ms": 36500,
+    "event": {
+      "type": "clock",
+      "live": 36500000,
+      "playhead": 28500000
+    }
+  },
+  {
+    "at_ms": 36600,
+    "event": {
+      "type": "clock",
+      "live": 36600000,
+      "playhead": 28600000
+    }
+  },
+  {
+    "at_ms": 36700,
+    "event": {
+      "type": "clock",
+      "live": 36700000,
+      "playhead": 28700000
+    }
+  },
+  {
+    "at_ms": 36800,
+    "event": {
+      "type": "clock",
+      "live": 36800000,
+      "playhead": 28800000
+    }
+  },
+  {
+    "at_ms": 36900,
+    "event": {
+      "type": "clock",
+      "live": 36900000,
+      "playhead": 28900000
+    }
+  },
+  {
+    "at_ms": 37000,
+    "event": {
+      "type": "clock",
+      "live": 37000000,
+      "playhead": 29000000
+    }
+  },
+  {
+    "at_ms": 37100,
+    "event": {
+      "type": "clock",
+      "live": 37100000,
+      "playhead": 29100000
+    }
+  },
+  {
+    "at_ms": 37200,
+    "event": {
+      "type": "clock",
+      "live": 37200000,
+      "playhead": 29200000
+    }
+  },
+  {
+    "at_ms": 37300,
+    "event": {
+      "type": "clock",
+      "live": 37300000,
+      "playhead": 29300000
+    }
+  },
+  {
+    "at_ms": 37400,
+    "event": {
+      "type": "clock",
+      "live": 37400000,
+      "playhead": 29400000
+    }
+  },
+  {
+    "at_ms": 37500,
+    "event": {
+      "type": "clock",
+      "live": 37500000,
+      "playhead": 29500000
+    }
+  },
+  {
+    "at_ms": 37600,
+    "event": {
+      "type": "clock",
+      "live": 37600000,
+      "playhead": 29600000
+    }
+  },
+  {
+    "at_ms": 37700,
+    "event": {
+      "type": "clock",
+      "live": 37700000,
+      "playhead": 29700000
+    }
+  },
+  {
+    "at_ms": 37800,
+    "event": {
+      "type": "redaction_aired",
+      "redaction": {
+        "id": 5,
+        "category": "screen_secret",
+        "mode": "apply",
+        "action": "blur",
+        "target": {
+          "kind": "video",
+          "region": {
+            "x": 0.54,
+            "y": 0.81,
+            "w": 0.42000002,
+            "h": 0.06999999
+          }
+        },
+        "span": {
+          "start": 25250000,
+          "end": 29750000
+        },
+        "status": "pending",
+        "confidence": 0.9405,
+        "sources": [
+          "secret"
+        ],
+        "reasons": [
+          "Twitch stream key visible on screen"
+        ],
+        "evidence": [
+          "li••••••••••••••••••••••••"
+        ]
+      }
+    }
+  },
+  {
+    "at_ms": 37800,
+    "event": {
+      "type": "clock",
+      "live": 37800000,
+      "playhead": 29800000
+    }
+  },
+  {
+    "at_ms": 37900,
+    "event": {
+      "type": "clock",
+      "live": 37900000,
+      "playhead": 29900000
+    }
+  },
+  {
+    "at_ms": 38000,
+    "event": {
+      "type": "clock",
+      "live": 38000000,
+      "playhead": 30000000
+    }
+  },
+  {
+    "at_ms": 38100,
+    "event": {
+      "type": "clock",
+      "live": 38100000,
+      "playhead": 30100000
+    }
+  },
+  {
+    "at_ms": 38200,
+    "event": {
+      "type": "clock",
+      "live": 38200000,
+      "playhead": 30200000
+    }
+  },
+  {
+    "at_ms": 38300,
+    "event": {
+      "type": "clock",
+      "live": 38300000,
+      "playhead": 30300000
+    }
+  },
+  {
+    "at_ms": 38400,
+    "event": {
+      "type": "clock",
+      "live": 38400000,
+      "playhead": 30400000
+    }
+  },
+  {
+    "at_ms": 38500,
+    "event": {
+      "type": "clock",
+      "live": 38500000,
+      "playhead": 30500000
+    }
+  },
+  {
+    "at_ms": 38600,
+    "event": {
+      "type": "clock",
+      "live": 38600000,
+      "playhead": 30600000
+    }
+  },
+  {
+    "at_ms": 38700,
+    "event": {
+      "type": "clock",
+      "live": 38700000,
+      "playhead": 30700000
+    }
+  },
+  {
+    "at_ms": 38800,
+    "event": {
+      "type": "clock",
+      "live": 38800000,
+      "playhead": 30800000
+    }
+  },
+  {
+    "at_ms": 38900,
+    "event": {
+      "type": "clock",
+      "live": 38900000,
+      "playhead": 30900000
+    }
+  },
+  {
+    "at_ms": 39000,
+    "event": {
+      "type": "clock",
+      "live": 39000000,
+      "playhead": 31000000
+    }
+  },
+  {
+    "at_ms": 39100,
+    "event": {
+      "type": "clock",
+      "live": 39100000,
+      "playhead": 31100000
+    }
+  },
+  {
+    "at_ms": 39200,
+    "event": {
+      "type": "clock",
+      "live": 39200000,
+      "playhead": 31200000
+    }
+  },
+  {
+    "at_ms": 39300,
+    "event": {
+      "type": "clock",
+      "live": 39300000,
+      "playhead": 31300000
+    }
+  },
+  {
+    "at_ms": 39400,
+    "event": {
+      "type": "clock",
+      "live": 39400000,
+      "playhead": 31400000
+    }
+  },
+  {
+    "at_ms": 39500,
+    "event": {
+      "type": "clock",
+      "live": 39500000,
+      "playhead": 31500000
+    }
+  },
+  {
+    "at_ms": 39600,
+    "event": {
+      "type": "clock",
+      "live": 39600000,
+      "playhead": 31600000
+    }
+  },
+  {
+    "at_ms": 39700,
+    "event": {
+      "type": "clock",
+      "live": 39700000,
+      "playhead": 31700000
+    }
+  },
+  {
+    "at_ms": 39800,
+    "event": {
+      "type": "clock",
+      "live": 39800000,
+      "playhead": 31800000
+    }
+  },
+  {
+    "at_ms": 39900,
+    "event": {
+      "type": "clock",
+      "live": 39900000,
+      "playhead": 31900000
+    }
+  },
+  {
+    "at_ms": 40000,
+    "event": {
+      "type": "clock",
+      "live": 40000000,
+      "playhead": 32000000
+    }
+  },
+  {
+    "at_ms": 40100,
+    "event": {
+      "type": "clock",
+      "live": 40100000,
+      "playhead": 32100000
+    }
+  },
+  {
+    "at_ms": 40200,
+    "event": {
+      "type": "clock",
+      "live": 40200000,
+      "playhead": 32200000
+    }
+  },
+  {
+    "at_ms": 40300,
+    "event": {
+      "type": "clock",
+      "live": 40300000,
+      "playhead": 32300000
+    }
+  },
+  {
+    "at_ms": 40400,
+    "event": {
+      "type": "clock",
+      "live": 40400000,
+      "playhead": 32400000
+    }
+  },
+  {
+    "at_ms": 40500,
+    "event": {
+      "type": "clock",
+      "live": 40500000,
+      "playhead": 32500000
+    }
+  },
+  {
+    "at_ms": 40600,
+    "event": {
+      "type": "clock",
+      "live": 40600000,
+      "playhead": 32600000
+    }
+  },
+  {
+    "at_ms": 40700,
+    "event": {
+      "type": "clock",
+      "live": 40700000,
+      "playhead": 32700000
+    }
+  },
+  {
+    "at_ms": 40800,
+    "event": {
+      "type": "clock",
+      "live": 40800000,
+      "playhead": 32800000
+    }
+  },
+  {
+    "at_ms": 40900,
+    "event": {
+      "type": "clock",
+      "live": 40900000,
+      "playhead": 32900000
+    }
+  },
+  {
+    "at_ms": 41000,
+    "event": {
+      "type": "clock",
+      "live": 41000000,
+      "playhead": 33000000
+    }
+  },
+  {
+    "at_ms": 41100,
+    "event": {
+      "type": "clock",
+      "live": 41100000,
+      "playhead": 33100000
+    }
+  },
+  {
+    "at_ms": 41200,
+    "event": {
+      "type": "clock",
+      "live": 41200000,
+      "playhead": 33200000
+    }
+  },
+  {
+    "at_ms": 41300,
+    "event": {
+      "type": "clock",
+      "live": 41300000,
+      "playhead": 33300000
+    }
+  },
+  {
+    "at_ms": 41400,
+    "event": {
+      "type": "clock",
+      "live": 41400000,
+      "playhead": 33400000
+    }
+  },
+  {
+    "at_ms": 41500,
+    "event": {
+      "type": "clock",
+      "live": 41500000,
+      "playhead": 33500000
+    }
+  },
+  {
+    "at_ms": 41600,
+    "event": {
+      "type": "clock",
+      "live": 41600000,
+      "playhead": 33600000
+    }
+  },
+  {
+    "at_ms": 41700,
+    "event": {
+      "type": "clock",
+      "live": 41700000,
+      "playhead": 33700000
+    }
+  },
+  {
+    "at_ms": 41800,
+    "event": {
+      "type": "clock",
+      "live": 41800000,
+      "playhead": 33800000
+    }
+  },
+  {
+    "at_ms": 41900,
+    "event": {
+      "type": "clock",
+      "live": 41900000,
+      "playhead": 33900000
+    }
+  },
+  {
+    "at_ms": 42000,
+    "event": {
+      "type": "clock",
+      "live": 42000000,
+      "playhead": 34000000
+    }
+  },
+  {
+    "at_ms": 42100,
+    "event": {
+      "type": "clock",
+      "live": 42100000,
+      "playhead": 34100000
+    }
+  },
+  {
+    "at_ms": 42200,
+    "event": {
+      "type": "clock",
+      "live": 42200000,
+      "playhead": 34200000
+    }
+  },
+  {
+    "at_ms": 42300,
+    "event": {
+      "type": "clock",
+      "live": 42300000,
+      "playhead": 34300000
+    }
+  },
+  {
+    "at_ms": 42400,
+    "event": {
+      "type": "clock",
+      "live": 42400000,
+      "playhead": 34400000
+    }
+  },
+  {
+    "at_ms": 42500,
+    "event": {
+      "type": "clock",
+      "live": 42500000,
+      "playhead": 34500000
+    }
+  },
+  {
+    "at_ms": 42600,
+    "event": {
+      "type": "clock",
+      "live": 42600000,
+      "playhead": 34600000
+    }
+  },
+  {
+    "at_ms": 42700,
+    "event": {
+      "type": "clock",
+      "live": 42700000,
+      "playhead": 34700000
+    }
+  },
+  {
+    "at_ms": 42800,
+    "event": {
+      "type": "clock",
+      "live": 42800000,
+      "playhead": 34800000
+    }
+  },
+  {
+    "at_ms": 42900,
+    "event": {
+      "type": "clock",
+      "live": 42900000,
+      "playhead": 34900000
+    }
+  },
+  {
+    "at_ms": 43000,
+    "event": {
+      "type": "clock",
+      "live": 43000000,
+      "playhead": 35000000
+    }
+  },
+  {
+    "at_ms": 43100,
+    "event": {
+      "type": "clock",
+      "live": 43100000,
+      "playhead": 35100000
+    }
+  },
+  {
+    "at_ms": 43200,
+    "event": {
+      "type": "clock",
+      "live": 43200000,
+      "playhead": 35200000
+    }
+  },
+  {
+    "at_ms": 43300,
+    "event": {
+      "type": "clock",
+      "live": 43300000,
+      "playhead": 35300000
+    }
+  },
+  {
+    "at_ms": 43400,
+    "event": {
+      "type": "clock",
+      "live": 43400000,
+      "playhead": 35400000
+    }
+  },
+  {
+    "at_ms": 43500,
+    "event": {
+      "type": "clock",
+      "live": 43500000,
+      "playhead": 35500000
+    }
+  },
+  {
+    "at_ms": 43600,
+    "event": {
+      "type": "clock",
+      "live": 43600000,
+      "playhead": 35600000
+    }
+  },
+  {
+    "at_ms": 43700,
+    "event": {
+      "type": "clock",
+      "live": 43700000,
+      "playhead": 35700000
+    }
+  },
+  {
+    "at_ms": 43800,
+    "event": {
+      "type": "clock",
+      "live": 43800000,
+      "playhead": 35800000
+    }
+  },
+  {
+    "at_ms": 43900,
+    "event": {
+      "type": "clock",
+      "live": 43900000,
+      "playhead": 35900000
+    }
+  },
+  {
+    "at_ms": 44000,
+    "event": {
+      "type": "clock",
+      "live": 44000000,
+      "playhead": 36000000
+    }
+  },
+  {
+    "at_ms": 44100,
+    "event": {
+      "type": "clock",
+      "live": 44100000,
+      "playhead": 36100000
+    }
+  },
+  {
+    "at_ms": 44200,
+    "event": {
+      "type": "clock",
+      "live": 44200000,
+      "playhead": 36200000
+    }
+  },
+  {
+    "at_ms": 44300,
+    "event": {
+      "type": "clock",
+      "live": 44300000,
+      "playhead": 36300000
+    }
+  },
+  {
+    "at_ms": 44400,
+    "event": {
+      "type": "clock",
+      "live": 44400000,
+      "playhead": 36400000
+    }
+  },
+  {
+    "at_ms": 44500,
+    "event": {
+      "type": "clock",
+      "live": 44500000,
+      "playhead": 36500000
+    }
+  },
+  {
+    "at_ms": 44600,
+    "event": {
+      "type": "clock",
+      "live": 44600000,
+      "playhead": 36600000
+    }
+  },
+  {
+    "at_ms": 44700,
+    "event": {
+      "type": "clock",
+      "live": 44700000,
+      "playhead": 36700000
+    }
+  },
+  {
+    "at_ms": 44800,
+    "event": {
+      "type": "clock",
+      "live": 44800000,
+      "playhead": 36800000
+    }
+  },
+  {
+    "at_ms": 44900,
+    "event": {
+      "type": "clock",
+      "live": 44900000,
+      "playhead": 36900000
+    }
+  },
+  {
+    "at_ms": 45000,
+    "event": {
+      "type": "clock",
+      "live": 45000000,
+      "playhead": 37000000
+    }
+  }
+]

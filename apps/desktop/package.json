@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "scripts": {
     "ng": "ng",
+    "prestart": "cargo test --manifest-path ../../Cargo.toml -p airlock-core -p airlock-pipeline export_bindings",
     "start": "ng serve",
+    "prebuild": "cargo test --manifest-path ../../Cargo.toml -p airlock-core -p airlock-pipeline export_bindings",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "tauri": "tauri"

@@ -16,5 +16,5 @@ pub use buffer::DelayLine;
 pub use decision::{Action, DecisionEngine, Redaction, RedactionId, Status, Target};
 pub use error::{Error, Result};
 pub use model::{Category, Detection, DetectorKind, Modality, Platform, Rect, TextBox, Word};
-pub use policy::{AudioAction, CategoryPolicy, Mode, Policy, VideoAction};
+pub use policy::{AudioAction, CategoryPolicy, Mode, Policy, StallFallback, VideoAction};
 pub use time::{Dur, Span, Ts};

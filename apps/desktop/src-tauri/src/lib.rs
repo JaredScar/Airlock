@@ -40,8 +40,22 @@ fn veto(id: RedactionId, state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn export_incidents_csv(state: State<'_, AppState>) -> Result<String, String> {
-    with_session(&state, |s| Ok(incident::to_csv(s.aired())))
+fn export_incidents(format: String, state: State<'_, AppState>) -> Result<String, String> {
+    with_session(&state, |s| match format.as_str() {
+        "csv" => Ok(incident::to_csv(s.aired())),
+        "edl" => Ok(incident::to_edl(s.aired())),
+        "youtube" => Ok(incident::to_youtube_timestamps(s.aired())),
+        "chapters" => Ok(incident::to_chapters(s.aired())),
+        other => Err(format!("unknown incident format: {other}")),
+    })
+}
+
+#[tauri::command]
+fn dump(blackout_video: bool, state: State<'_, AppState>) -> Result<(), String> {
+    with_session(&state, |s| {
+        s.dump(blackout_video);
+        Ok(())
+    })
 }
 
 fn with_session<T>(
@@ -66,7 +80,8 @@ pub fn run() {
             start_demo,
             approve,
             veto,
-            export_incidents_csv
+            dump,
+            export_incidents
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

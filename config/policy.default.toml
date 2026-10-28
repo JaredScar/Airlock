@@ -11,6 +11,10 @@
 delay_ms = 8000
 # Redactions of the same kind closer together than this are merged.
 merge_gap_ms = 250
+# No finalized words for this long, while the mix still has audio, is a stall.
+stall_after_ms = 3000
+# warn | mute | extend_delay. Warn shows the banner and lets audio air.
+stall_fallback = "warn"
 
 [categories.profanity]
 mode = "apply"

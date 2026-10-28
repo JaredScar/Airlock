@@ -31,9 +31,30 @@ pub fn resample_linear(input: &[f32], from_hz: u32, to_hz: u32) -> Vec<f32> {
         .collect()
 }
 
+/// True when the chunk is louder than about −40 dBFS.
+/// Silence must not trip the stall fail-safe.
+pub fn has_speech_energy(samples: &[f32]) -> bool {
+    if samples.is_empty() {
+        return false;
+    }
+    let mean_sq = samples
+        .iter()
+        .map(|s| f64::from(*s) * f64::from(*s))
+        .sum::<f64>()
+        / samples.len() as f64;
+    mean_sq.sqrt() >= 0.01
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn energy_ignores_silence() {
+        assert!(!has_speech_energy(&[]));
+        assert!(!has_speech_energy(&[0.0; 480]));
+        assert!(has_speech_energy(&[0.2; 480]));
+    }
 
     #[test]
     fn downmix() {

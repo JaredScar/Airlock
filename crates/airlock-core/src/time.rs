@@ -4,11 +4,13 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Add, Sub};
+use ts_rs::TS;
 
 /// A point in media time: microseconds since stream start.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize, TS,
 )]
+#[ts(export, type = "number")]
 pub struct Ts(pub i64);
 
 /// A length of media time in microseconds.
@@ -67,6 +69,12 @@ impl Sub<Ts> for Ts {
         Dur(self.0 - rhs.0)
     }
 }
+impl Add for Dur {
+    type Output = Dur;
+    fn add(self, rhs: Dur) -> Dur {
+        Dur(self.0 + rhs.0)
+    }
+}
 
 impl fmt::Display for Ts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -82,7 +90,8 @@ impl fmt::Display for Ts {
 }
 
 /// Half-open interval `[start, end)` in media time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Span {
     pub start: Ts,
     pub end: Ts,

@@ -12,6 +12,7 @@ airlock-detect.workspace = true
 airlock-llm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+ts-rs.workspace = true
 
 [dev-dependencies]
 airlock-asr.workspace = true

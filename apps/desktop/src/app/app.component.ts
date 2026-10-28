@@ -1,6 +1,6 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { AirlockService } from './airlock.service';
+import { AirlockService, IncidentFormat, inDesktopShell } from './airlock.service';
 import { CATEGORY_LABEL, Redaction, Word, isActive } from './airlock.types';
 
 @Component({
@@ -15,9 +15,23 @@ export class AppComponent {
 
   /** Delay meter fill: how full the airlock is relative to the configured delay. */
   readonly delayFill = computed(() => Math.min(100, (this.al.delayMs() / 8000) * 100));
+  readonly blackoutVideo = signal(false);
+
+  dump() {
+    this.al.dump(this.blackoutVideo());
+  }
+
+  setBlackout(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.blackoutVideo.set(input.checked);
+  }
 
   constructor() {
-    this.al.ensureListening();
+    if (inDesktopShell()) {
+      void this.al.ensureListening();
+    } else {
+      this.al.playFixture();
+    }
   }
 
   secondsUntilAir(r: Redaction): number {
@@ -47,10 +61,16 @@ export class AppComponent {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
 
-  async exportCsv() {
-    const csv = await this.al.exportCsv();
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: 'airlock-incidents.csv' });
+  async download(kind: IncidentFormat) {
+    const text = await this.al.exportIncidents(kind);
+    const file = {
+      csv: ['airlock-incidents.csv', 'text/csv'],
+      edl: ['airlock-incidents.edl', 'text/plain'],
+      chapters: ['airlock-chapters.vtt', 'text/vtt'],
+      youtube: ['airlock-youtube.txt', 'text/plain'],
+    }[kind];
+    const url = URL.createObjectURL(new Blob([text], { type: file[1] }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: file[0] });
     a.click();
     URL.revokeObjectURL(url);
   }
