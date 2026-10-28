@@ -1,0 +1,9 @@
+/target
+node_modules/
+apps/desktop/dist/
+apps/desktop/.angular/
+apps/desktop/src-tauri/gen/
+models/
+*.log
+.env
+.DS_Store

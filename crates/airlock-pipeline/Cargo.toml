@@ -1,0 +1,17 @@
+[package]
+name = "airlock-pipeline"
+description = "Session orchestrator: wires detectors, judge and decision engine; emits UI events"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+airlock-core.workspace = true
+airlock-detect.workspace = true
+airlock-llm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+airlock-asr.workspace = true

@@ -1,0 +1,63 @@
+# Airlock default policy. Must stay identical (in values) to `Policy::default()`;
+# a test in airlock-core fails if they drift.
+#
+# mode:  apply    = redact automatically, streamer may veto during the delay window
+#        suggest  = flag only, redact if the streamer approves before it airs
+#        log_only = never redact live, record for VOD cleanup
+# audio: bleep | mute | none
+# video: blur | pixelate | blackout | none
+
+# Broadcast delay. ASR + LLM + OCR + streamer review all have to fit inside it.
+delay_ms = 8000
+# Redactions of the same kind closer together than this are merged.
+merge_gap_ms = 250
+
+[categories.profanity]
+mode = "apply"
+audio = "bleep"
+video = "none"
+min_confidence = 0.6
+pad_before_ms = 80
+pad_after_ms = 80
+
+[categories.slur]
+mode = "apply"
+audio = "bleep"
+video = "none"
+min_confidence = 0.5
+pad_before_ms = 120
+pad_after_ms = 120
+
+[categories.spoken_pii]
+mode = "apply"
+audio = "mute"
+video = "none"
+min_confidence = 0.6
+pad_before_ms = 150
+pad_after_ms = 150
+
+# OCR samples every ~250ms, so pad generously: text may have appeared between samples.
+[categories.screen_secret]
+mode = "apply"
+audio = "none"
+video = "blur"
+min_confidence = 0.5
+pad_before_ms = 500
+pad_after_ms = 750
+
+[categories.screen_pii]
+mode = "suggest"
+audio = "none"
+video = "blur"
+min_confidence = 0.6
+pad_before_ms = 500
+pad_after_ms = 750
+
+# LLM judgments carry the highest false-positive cost, so they're suggestions by default.
+[categories.tos_risk]
+mode = "suggest"
+audio = "mute"
+video = "none"
+min_confidence = 0.75
+pad_before_ms = 200
+pad_after_ms = 200

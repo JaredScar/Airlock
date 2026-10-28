@@ -1,0 +1,13 @@
+[package]
+name = "airlock-llm"
+description = "Context judge: LLM that flags ToS-risk speech the wordlists can't see"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+airlock-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

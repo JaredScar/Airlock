@@ -1,0 +1,11 @@
+[package]
+name = "airlock-detect"
+description = "Fast deterministic detectors: wordlists, spoken PII, private terms, on-screen secrets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+airlock-core.workspace = true
+regex.workspace = true

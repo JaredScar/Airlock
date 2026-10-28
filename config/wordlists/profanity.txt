@@ -1,0 +1,25 @@
+# Profanity seed list. `word` = exact token, `word*` = prefix.
+# Bleeped by default (see policy.default.toml). Users can add their own in settings.
+# TODO(PLAN 2.6): replace with a maintained, licensed list and per-language lists.
+fuck*
+motherfuck*
+shit*
+bullshit
+horseshit
+bitch*
+asshole*
+ass
+dumbass
+jackass
+bastard*
+cunt*
+dick
+dickhead*
+cock
+cocksucker*
+pussy
+twat*
+wanker*
+prick
+damn
+goddamn*

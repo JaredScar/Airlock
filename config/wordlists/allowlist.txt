@@ -1,0 +1,7 @@
+# Tokens that must never be flagged even if a prefix entry matches.
+cockpit
+cocktail
+cockatoo
+shitake
+shiitake
+dickens

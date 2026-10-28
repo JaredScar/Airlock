@@ -1,0 +1,85 @@
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <span class="name">AIRLOCK</span>
+  </div>
+
+  <div class="meter" [class.on]="al.running()">
+    <div class="meter-labels">
+      <span>LIVE <b>{{ formatTs(al.live()) }}</b></span>
+      <span>Delay <b>{{ al.delayMs() / 1000 | number: '1.1-1' }}s</b></span>
+      <span>ON AIR <b>{{ formatTs(al.playhead()) }}</b></span>
+    </div>
+    <div class="meter-track"><div class="meter-fill" [style.width.%]="delayFill()"></div></div>
+  </div>
+
+  <button class="primary" (click)="al.startDemo()">{{ al.running() ? 'Restart demo' : 'Run demo' }}</button>
+</header>
+
+@if (al.error(); as err) {
+  <div class="banner">{{ err }}</div>
+}
+
+<main class="grid">
+  <section class="panel queue">
+    <h2>In the airlock <span class="count">{{ al.upcoming().length }}</span></h2>
+    <p class="hint">Everything here hasn't aired yet. Veto a redaction or approve a suggestion before the countdown ends.</p>
+
+    @for (r of al.upcoming(); track r.id) {
+      <article class="card" [class]="'card cat-' + r.category" [class.airing]="isAiring(r)" [class.inactive]="!isActive(r)">
+        <div class="card-head">
+          <span class="chip">{{ label[r.category] }}</span>
+          <span class="action">{{ isActive(r) ? r.action : (r.mode === 'suggest' ? 'suggested ' + r.action : 'off') }}</span>
+          <span class="eta">
+            @if (isAiring(r)) { ON AIR } @else { airs in {{ secondsUntilAir(r) | number: '1.1-1' }}s }
+          </span>
+        </div>
+        <div class="reason">{{ r.reasons.join(' · ') }}</div>
+        @if (r.evidence.length) {
+          <div class="evidence">{{ r.evidence.join('  ') }}</div>
+        }
+        <div class="card-foot">
+          <span class="meta">{{ formatTs(r.span.start) }}–{{ formatTs(r.span.end) }} · {{ (r.confidence * 100) | number: '1.0-0' }}% · {{ r.sources.join(', ') }}</span>
+          @if (r.mode === 'suggest' && r.status !== 'approved') {
+            <button class="approve" (click)="al.approve(r.id)">Redact</button>
+          }
+          @if (isActive(r)) {
+            <button class="veto" (click)="al.veto(r.id)">Let it air</button>
+          }
+        </div>
+      </article>
+    } @empty {
+      <div class="empty">Nothing flagged in the delay window.</div>
+    }
+  </section>
+
+  <section class="panel transcript">
+    <h2>Transcript</h2>
+    <p class="hint"><i class="k held"></i>held <i class="k aired"></i>aired <i class="k flagged"></i>flagged <i class="k redacted"></i>will be redacted</p>
+    <div class="words">
+      @for (w of al.words(); track w.span.start) {
+        <span class="w" [class]="'w ' + wordState(w)">{{ w.text }}</span>
+      }
+    </div>
+  </section>
+
+  <section class="panel log">
+    <h2>
+      Incident log <span class="count">{{ al.aired().length }}</span>
+      <button class="ghost" (click)="exportCsv()" [disabled]="!al.aired().length">Export CSV</button>
+    </h2>
+    <table>
+      <thead><tr><th>Time</th><th>Category</th><th>Outcome</th><th>Reason</th></tr></thead>
+      <tbody>
+        @for (r of al.aired(); track r.id) {
+          <tr>
+            <td>{{ formatTs(r.span.start) }}</td>
+            <td>{{ label[r.category] }}</td>
+            <td [class.ok]="isActive(r)">{{ isActive(r) ? r.action : 'aired unredacted' }}</td>
+            <td>{{ r.reasons.join(' · ') }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+</main>

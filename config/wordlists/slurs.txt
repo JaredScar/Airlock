@@ -1,0 +1,4 @@
+# Slur list. Intentionally shipped empty in the repo.
+# TODO(PLAN 2.6): populate from a maintained source (e.g. LDNOOBW or a commercial
+# hate-speech lexicon) after a license check, kept per-language. Same format as
+# profanity.txt. Slurs take precedence over profanity when both match.

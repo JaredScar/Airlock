@@ -1,0 +1,11 @@
+---
+description: Airlock project conventions and task workflow
+alwaysApply: true
+---
+
+- Before any change, read `AGENTS.md`, then find your task in `PLAN.md`.
+- Work one PLAN.md task at a time. Meet its "Done when" criteria, run the checks listed in
+  PLAN.md, then flip its checkbox to `[x]` and append ` — done YYYY-MM-DD: <note>`.
+- Record architectural choices in the PLAN.md "Decisions log".
+- Never log, display, or commit raw secrets, stream keys, or private terms. Use `mask_evidence`.
+- All timing uses media time (`Ts`, `Dur`, `Span` from airlock-core).

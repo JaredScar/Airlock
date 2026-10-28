@@ -1,0 +1,17 @@
+[package]
+name = "airlock-media"
+description = "Ingest, delay, redaction effects and egress for audio/video"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+# In-process FFmpeg (ffmpeg-next) ingest/egress. Off by default so the engine builds
+# and tests without FFmpeg dev libraries. See PLAN.md Phase 1.
+ffmpeg = []
+
+[dependencies]
+airlock-core.workspace = true
+serde.workspace = true
+thiserror.workspace = true
