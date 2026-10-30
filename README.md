@@ -1,6 +1,6 @@
 # Airlock
 
-A broadcast delay with a brain. OBS streams into Airlock on your PC; Airlock holds the stream
+A broadcast delay with a brain. OBS or Streamlabs Desktop streams into Airlock on your PC; Airlock holds the stream
 for a few seconds, catches what shouldn't air, and redacts it before it reaches
 Twitch/YouTube/Kick:
 

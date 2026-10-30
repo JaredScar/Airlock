@@ -54,22 +54,21 @@
 } @else {
 <details class="setup">
   <summary>
-    <span class="sum-label">OBS</span>
+    <span class="sum-label">OBS / Streamlabs</span>
     <code>rtmp://127.0.0.1:1935/live</code>
     <span class="sum-key">key <code>airlock</code></span>
   </summary>
   <div class="setup-body">
-    <p>Point OBS at this PC, not at the platform. Airlock holds the stream, then forwards the clean copy.</p>
-    <ol>
-      <li>Settings → Stream → Service: <b>Custom</b>.</li>
-      <li>Server: <code>rtmp://127.0.0.1:1935/live</code></li>
-      <li>Stream key: <code>airlock</code>. That key is only the local hop. The platform key stays in the OS keychain.</li>
-    </ol>
+    <div>
+      <p>Point OBS or Streamlabs Desktop at this PC, not at the platform. Airlock holds the stream, then forwards the clean copy. The key <code>airlock</code> is only this hop. The platform key stays in the OS keychain.</p>
+      <p><b>OBS.</b> Settings → Stream → Service: Custom. Server <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>.</p>
+      <p><b>Streamlabs Desktop.</b> Settings → Stream → Stream to custom ingest. Stream type: Custom Streaming Server. URL <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>.</p>
+    </div>
     <ul>
-      <li>Output mode: Advanced. Encoder: NVENC, or x264 without it.</li>
-      <li>CBR, 15000 Kbps at 1080p, keyframe interval 2 seconds.</li>
+      <li>Encoder: NVENC, or x264 without it. CBR, 15000 Kbps at 1080p, keyframe interval 2 seconds.</li>
       <li>Audio: 48 kHz, 320 Kbps. Video passes through untouched.</li>
-      <li>Set a backup server to the platform itself. If Airlock stops, OBS continues the broadcast there.</li>
+      <li>In OBS, set a backup server to the platform itself. If Airlock stops, OBS continues the broadcast there.</li>
+      <li>Streamlabs chat, alerts, and widgets that follow the platform connection stay quiet. Streamlabs is publishing to this PC, and Airlock is the app connected to Twitch, YouTube, or Kick.</li>
     </ul>
   </div>
 </details>

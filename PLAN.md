@@ -1,7 +1,7 @@
 # Airlock: build plan
 
-> **Airlock** (working name) is a local "broadcast delay with a brain" for streamers. OBS streams
-> into Airlock on localhost; Airlock holds the stream for a few seconds, uses AI to catch what
+> **Airlock** (working name) is a local "broadcast delay with a brain" for streamers. OBS or
+> Streamlabs Desktop streams into Airlock on localhost; Airlock holds the stream for a few seconds, uses AI to catch what
 > shouldn't air (swearing, slurs, self-doxxing, secrets on screen, ToS-risk speech), redacts it,
 > and forwards the clean stream to Twitch/YouTube/Kick.
 >
@@ -69,6 +69,7 @@ Video is passed through untouched (no re-encode).
 - [x] 1.9 Fail-safe behavior: if analysis stalls (no ASR words for N seconds while audio has energy), show a red banner and apply the configured fallback (`warn` | `mute` | `extend delay`). — done 2026-10-28: default is warn after 3s; mute and extend-delay are policy settings. Extra delay stays for the session.
 - [ ] 1.10 Replace demo-only wiring in `apps/desktop/src-tauri` with a real session started from the UI ("Go live" / "Stop"), keeping demo mode behind a dev toggle.
 - [x] 1.11 OBS setup guide in the app: what to put in OBS → Settings → Stream (Custom server `rtmp://127.0.0.1:1935/live`, recommended high-bitrate local settings). — done 2026-10-28: collapsible guide in the review UI. No OBS install required to read it.
+- [x] 1.13 Streamlabs Desktop publishes to the same local RTMP ingest. — done 2026-10-30: the setup guide lists Settings → Stream → Stream to custom ingest → Custom Streaming Server, with the same URL and local key. obs-websocket setup, scene names, and start-with-OBS stay OBS-only. Streamlabs chat, alerts, and widgets that follow the platform connection stay quiet.
 - [ ] 1.12 **Milestone:** stream for 1 hour to Twitch through Airlock; every wordlist hit in the test script is bleeped; CPU < 15% on the dev machine beyond OBS's own usage.
 
 ## Phase 2: Local speech recognition + spoken PII
@@ -194,6 +195,7 @@ Video is passed through untouched (no re-encode).
 - D37 2026-10-30: A failed publish waits 250 ms and doubles that wait up to 8 s, then tries the same URL again. The stream key is a keychain entry named by `stream_key_ref`. It is not written into the error.
 - D38 2026-10-30: A video redaction decodes to BGRA, runs `pixelate_bgra`, and encodes with NVENC when that encoder exists. Otherwise it uses x264. Passthrough stays the default until a video category is on. The 1080p60 GPU budget is still over 10%.
 - D39 2026-10-30: A video redaction pixelates on the GPU. The region is scaled down and back up with `scale_cuda` nearest-neighbor, then `overlay_cuda` puts it back. NVENC encodes frames of at least 256×128. A missing CUDA device, or a smaller frame, uses the in-memory pixelate. Blur uses this same block pixelate, because a light blur can be undone.
+- D40 2026-10-30: The ingest accepts any local RTMP publisher. OBS uses Service Custom. Streamlabs Desktop uses Stream to custom ingest → Custom Streaming Server. Both use `rtmp://127.0.0.1:1935/live` and the local key `airlock`. Automatic setup, scene names, and launching with the encoder stay OBS-only, because those use obs-websocket.
 
 ## Open questions (for Jared)
 

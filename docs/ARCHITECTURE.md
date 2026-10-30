@@ -1,6 +1,6 @@
 # Airlock architecture
 
-Airlock is a local relay that sits between OBS and the streaming platform. It holds the
+Airlock is a local relay that sits between the streaming app and the platform. OBS and Streamlabs Desktop both publish to the local RTMP ingest. It holds the
 stream in a delay buffer (default 8s), analyzes the *live* edge of that buffer with AI,
 and redacts problems in the *delayed* copy before it leaves the machine.
 
@@ -11,11 +11,11 @@ and redacts problems in the *delayed* copy before it leaves the machine.
                          │  frame sampler ─► OCR ─► secret/PII scanner            │
                          └──────────────────────────┬─────────────────────────────┘
                                                     ▼ Detections
- OBS ──RTMP/SRT──► ingest ──► DelayLine (audio) ─► Session/DecisionEngine ─► Redactions
-  (localhost,          │      DelayLine (video)          ▲                       │
-   high bitrate)       │                                 │ approve / veto        │
-                       │                        Review UI (Angular)              │
-                       ▼                                                         ▼
+ encoder ──RTMP/SRT──► ingest ──► DelayLine (audio) ─► Session/DecisionEngine ─► Redactions
+  (OBS or Streamlabs,       │      DelayLine (video)          ▲                       │
+   localhost)               │                                 │ approve / veto        │
+                            │                        Review UI (Angular)              │
+                            ▼                                                         ▼
                playhead = live − delay ──► audio_fx (bleep/mute) ──► AAC ──┐
                                       └──► video_fx (blur/pixelate) ─► NVENC ─┴─► mux ─► RTMPS ─► Twitch/YouTube/Kick
                                            (or packet passthrough when no video redaction)
