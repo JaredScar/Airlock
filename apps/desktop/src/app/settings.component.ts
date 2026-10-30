@@ -126,6 +126,16 @@ export class SettingsComponent {
     else this.studio.setCategory(id, { pad_after_ms: ms });
   }
 
+  onLicense(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setLicense(input.value);
+  }
+
+  onTelemetry(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setTelemetry(input.checked);
+  }
+
   onConsent(event: Event) {
     const input = event.target;
     if (input instanceof HTMLInputElement) this.studio.setConsent(input.checked);

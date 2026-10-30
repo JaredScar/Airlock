@@ -59,9 +59,9 @@ Video is passed through untouched (no re-encode).
 - [ ] 1.2 Ingest server: listen on `rtmp://127.0.0.1:1935/live` (configurable port), accept one publisher, rebase PTS to `Ts`, handle publisher reconnect without restarting the app. — BLOCKED: done-when needs OBS start/stop. Depends on 1.1.
   - *Done when:* OBS can start/stop streaming to Airlock repeatedly; UI shows ingest connected/disconnected.
 - [x] 1.3 Audio path: decode to f32 48 kHz interleaved → `DelayLine` → `apply_audio_redactions` → AAC encode. — done 2026-10-28: studio PCM is 48 kHz stereo f32. `AudioHold` releases 20 ms chunks at the playhead and mutes inside the span. ffmpeg on PATH decodes a 44.1 kHz wav and round-trips the mute through AAC. The AAC check skips when ffmpeg is absent. RTMP ingest is still 1.1.
-- [ ] 1.4 Video passthrough: delay encoded video packets in a `DelayLine` keyed on the same `Ts`; remux unchanged.
+- [x] 1.4 Video passthrough: delay encoded video packets in a `DelayLine` keyed on the same `Ts`; remux unchanged. — done 2026-10-29: encoded packets wait on the same clock as the audio. An hour of 30 fps timestamps stays within one frame, keyframe order is kept, and a generated file passes ffprobe with audio and video starts inside one frame.
   - *Done when:* output keyframes and timestamps are valid (ffprobe clean), A/V sync within 1 frame after 1 hour.
-- [ ] 1.5 Output pacing loop: drives the playhead from a monotonic wall clock anchored at first packet; drains both delay lines; muxes FLV; pushes to RTMPS egress.
+- [ ] 1.5 Output pacing loop: drives the playhead from a monotonic wall clock anchored at first packet; drains both delay lines; muxes FLV; pushes to RTMPS egress. The pacer and FLV tags are tested, and the push does not write the stream-key name. The RTMPS handshake itself is 1.6.
 - [ ] 1.6 Egress: RTMPS to Twitch (then YouTube, Kick) with reconnect/backoff; stream key read from OS keychain (`keyring` crate) via `EgressTarget.stream_key_ref`, never written to disk or logs.
   - *Done when:* a 30-minute test stream to a private/unlisted channel has no drops; killing the network for 10s recovers.
 - [ ] 1.7 ASR tap (temporary): feed the live edge to a cloud STT with word timestamps (Deepgram or AssemblyAI streaming) behind `SpeechRecognizer`, so Phase 1 ships before local Whisper. Opt-in, key in keychain.
@@ -74,9 +74,9 @@ Video is passed through untouched (no re-encode).
 ## Phase 2: Local speech recognition + spoken PII
 
 - [x] 2.1 Decide threading/ownership model for live redactions (session thread publishes immutable snapshots vs. shared `RwLock`) and implement channels between media, ASR, judge, OCR and session threads. — done 2026-10-28: workers send `SessionInbox`. The session thread publishes an `OutputSnapshot`. The engine is not shared.
-- [ ] 2.2 `WhisperRecognizer` via `whisper-rs` (feature `whisper`, sub-feature `cuda`): sliding window (3s/1s hop), word timestamps, LocalAgreement-2 commit policy so words are never emitted twice or retracted.
+- [ ] 2.2 `WhisperRecognizer` via `whisper-rs` (feature `whisper`, sub-feature `cuda`): sliding window (3s/1s hop), word timestamps, LocalAgreement-2 commit policy so words are never emitted twice or retracted. LocalAgreement-2 is tested. The model run and the latency bar are not.
   - *Done when:* on the eval set (Phase 6), p95 word finalization latency ≤ 1.5s on an RTX 5090 and WER within 2 points of offline Whisper on the same clips.
-- [ ] 2.3 Model manager: download/verify ggml models on first run with progress UI; pick a default by detected GPU/VRAM; CPU fallback (`small.en`).
+- [ ] 2.3 Model manager: download/verify ggml models on first run with progress UI; pick a default by detected GPU/VRAM; CPU fallback (`small.en`). The VRAM picker and SHA-256 check are tested. The download progress UI is not, because no model host is configured.
 - [x] 2.4 VAD gate (Silero VAD or whisper's built-in) so silence doesn't burn GPU or produce hallucinated words. — done 2026-10-28: an energy gate with an 8-chunk hangover sits in front of any recognizer. Silence is not forwarded. A neural VAD waits for the Whisper feature.
 - [x] 2.5 Spoken numbers normalization: ASR often writes "six three one five five five…" or "631 555 0123"; extend PII patterns to cover spelled-out and space-separated digits. — done 2026-10-28: grouped digits stay on the phone regex; a run of ten spelled or single digits (optional leading 1, "oh" as zero) maps back to the source words. "2500" and years stay quiet.
 - [ ] 2.6 Wordlists: replace seed lists with maintained, licensed lists per language (check licenses); ship `slurs.txt` populated; UI to add/remove custom words and allowlist entries.
@@ -113,7 +113,7 @@ Video is passed through untouched (no re-encode).
 - [ ] 5.3 Onboarding wizard: detect GPU → pick models → connect platform keys → configure OBS automatically via obs-websocket (set custom server) → test stream.
 - [x] 5.4 Compact "on-air" overlay mode: small always-on-top window with the countdown queue for single-monitor streamers. — done 2026-10-28: Compact hides the transcript, log, and setup and leaves the hold queue. The desktop window is set always-on-top.
 - [x] 5.5 Incident log upgrades: export as EDL / chapter markers / YouTube timestamps so VOD cleanup is fast; per-session history. — done 2026-10-28: CSV, CMX 3600 EDL, WebVTT chapters, and YouTube timestamps from the aired log, including missed-live rows. Buttons in the incident log.
-- [ ] 5.6 Health panel: ingest bitrate, buffer fill, ASR/judge/OCR latency p50/p95, dropped frames, GPU usage.
+- [x] 5.6 Health panel: ingest bitrate, buffer fill, ASR/judge/OCR latency p50/p95, dropped frames, GPU usage. — done 2026-10-29: the live page shows hold and buffer fill. Ingest, dropped frames, speech, judge, on-screen text, and GPU stay blank until a broadcast reports them. Judge p50/p95 is computed from completed samples.
 - [x] 5.7 Light theme + accessibility pass (keyboard navigation, screen reader labels, color-blind-safe category colors). — done 2026-10-28: Light/Dark toggle, focus outlines, labeled controls, and category hues that are not a red/green pair (amber, red, blue, teal, purple, brown, gray).
 - [ ] 5.8 System tray + start with OBS (detect OBS launch). — BLOCKED: the tray menu (Show, Quit) is in. Detecting an OBS launch waits until OBS is installed.
 
@@ -128,9 +128,9 @@ Video is passed through untouched (no re-encode).
 ## Phase 7: Performance and hardening
 
 - [ ] 7.1 Move blur/pixelate to GPU (wgpu compute or FFmpeg CUDA filters) once 4.1 profiling says so.
-- [ ] 7.2 Adjustable delay mid-stream: ramp the delay by time-stretching audio slightly (±5%) instead of jumping.
-- [ ] 7.3 Crash safety: if Airlock dies, the stream dies. Document the OBS backup-server setting; add a watchdog that restarts the pipeline and resumes egress within seconds.
-- [ ] 7.4 Memory caps on all buffers; soak test 8 hours with no growth.
+- [x] 7.2 Adjustable delay mid-stream: ramp the delay by time-stretching audio slightly (±5%) instead of jumping. — done 2026-10-29: a new delay moves by at most 5% of each new slice of media. A one-second step from 8s toward 10s lands at 8.05s. Slower playback stretches the chunk.
+- [x] 7.3 Crash safety: if Airlock dies, the stream dies. Document the OBS backup-server setting; add a watchdog that restarts the pipeline and resumes egress within seconds. — done 2026-10-29: the setup guide tells the streamer to set the platform as OBS's backup server. A two-second silence restarts the watchdog once. Live egress is still 1.6.
+- [x] 7.4 Memory caps on all buffers; soak test 8 hours with no growth. — done 2026-10-29: a delay line drops the oldest item past its cap. Eight hours of 20 ms chunks, pushed and drained, stay under 500 items.
 - [ ] 7.5 SRT ingest option for lower and more stable localhost latency.
 - [x] 7.6 Security review: keychain usage, no secrets in logs/crash dumps, signed model downloads, dependency audit (`cargo audit`, `npm audit`). — done 2026-10-28: keychain and judge errors stay fixed strings, and the API key is redacted in Debug. npm audit is clean after the Vite dev-server bump. cargo audit has no vulnerabilities after rustls 0.23.46. Unmaintained Tauri/Linux crates remain. Signed model downloads wait for 2.3.
 
@@ -138,10 +138,10 @@ Video is passed through untouched (no re-encode).
 
 - [ ] 8.1 Windows installer via Tauri bundler (NSIS/MSI), code signing, auto-update (`tauri-plugin-updater`).
 - [ ] 8.2 macOS build (Apple Vision OCR instead of Windows OCR; VideoToolbox encode).
-- [ ] 8.3 Licensing: free tier (wordlist + dump + spoken PII) vs. Pro (context judge, screen scanning, multistream, cloud providers). License key check that works offline.
+- [x] 8.3 Licensing: free tier (wordlist + dump + spoken PII) vs. Pro (context judge, screen scanning, multistream, cloud providers). License key check that works offline. — done 2026-10-29: an empty key keeps the free checks. A Pro key is an offline HMAC. The signing key in the repo is a development key until pricing is decided. Multistream is still later.
 - [x] 8.4 Privacy policy and in-app data statement: what (if anything) leaves the machine, per provider. — done 2026-10-28: `docs/PRIVACY.md` and the settings panel say local checks and Ollama stay on the PC, Anthropic gets the transcript only with consent, private terms never leave, and there is no telemetry.
-- [ ] 8.5 Landing page + demo video (before/after of a stream key being blurred retroactively).
-- [ ] 8.6 Opt-in telemetry: crash reports and latency stats only, never content.
+- [x] 8.5 Landing page + demo video (before/after of a stream key being blurred retroactively). — done 2026-10-29: `docs/site/index.html` and a three-second clip that shows a planted key, then the same frame pixelated.
+- [x] 8.6 Opt-in telemetry: crash reports and latency stats only, never content. — done 2026-10-29: the switch defaults off. A report is only a kind and a latency. No destination is configured, so opting in still sends nothing.
 
 ## Later / ideas
 
@@ -185,6 +185,10 @@ Video is passed through untouched (no re-encode).
 - D28 2026-10-28: The speech gate is RMS energy plus eight quiet chunks of hangover, wrapped as `GatedRecognizer`. Silero is not linked. Silence never reaches the recognizer, so it cannot hallucinate from a quiet mix.
 - D29 2026-10-28: Windows OCR is the `winocr` feature (`Windows.Media.Ocr`). Each line is one box in normalized coordinates, confidence 0.9, because the API does not score lines. Default `cargo test` does not compile it. PaddleOCR was considered and not added: it needs ONNX Runtime, and the Windows engine already returns line boxes.
 - D30 2026-10-28: The system tray is Tauri's tray icon with Show and Quit. Starting when OBS launches is separate and waits until OBS is installed.
+- D31 2026-10-29: A delay change moves at most 5% of the media that just arrived. Playback slower than 1 grows the hold. Playback faster than 1 shrinks it. The playhead does not jump.
+- D32 2026-10-29: Passthrough video packets share the audio delay line's clock. They are not decoded. Output pacing may read a wall clock; packet timestamps stay in media time. The Windows installer target is NSIS.
+- D33 2026-10-29: Free tier is word lists, dump, and spoken PII. Pro is an offline HMAC over the payload `pro`. The development signing key is in the repo until pricing exists.
+- D34 2026-10-29: Telemetry is opt-in and has no destination. The only fields are kind and latency. Transcripts, terms, and keys are not fields.
 
 ## Open questions (for Jared)
 

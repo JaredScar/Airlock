@@ -8,4 +8,5 @@ authors.workspace = true
 
 [dependencies]
 airlock-core.workspace = true
+sha2 = "0.10"
 thiserror.workspace = true

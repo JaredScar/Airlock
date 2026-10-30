@@ -69,6 +69,7 @@
       <li>Output mode: Advanced. Encoder: NVENC, or x264 without it.</li>
       <li>CBR, 15000 Kbps at 1080p, keyframe interval 2 seconds.</li>
       <li>Audio: 48 kHz, 320 Kbps. Video passes through untouched.</li>
+      <li>Set a backup server to the platform itself. If Airlock stops, OBS continues the broadcast there.</li>
     </ul>
   </div>
 </details>
@@ -84,6 +85,17 @@
 @if (al.error(); as err) {
   <div class="banner" role="status">{{ err }}</div>
 }
+
+<section class="health" aria-label="Pipeline health">
+  <span>Hold <b>{{ al.delayMs() / 1000 | number: '1.1-1' }}s</b></span>
+  <span>Buffer <b>{{ delayFill() | number: '1.0-0' }}%</b></span>
+  <span>Ingest <b title="Shown when a broadcast is connected">—</b></span>
+  <span>Dropped <b title="Shown when a broadcast is connected">—</b></span>
+  <span>Speech <b title="No samples yet">—</b></span>
+  <span>Judge <b title="No samples yet">—</b></span>
+  <span>On-screen text <b title="No samples yet">—</b></span>
+  <span>GPU <b title="Shown when a broadcast is connected">—</b></span>
+</section>
 
 <main class="grid">
   <section class="panel queue" aria-label="Redactions still in the delay">

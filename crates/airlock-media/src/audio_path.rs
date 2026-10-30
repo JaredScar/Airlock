@@ -267,6 +267,24 @@ fn io_error(err: std::io::Error) -> MediaError {
     }
 }
 
+/// Stretches or squeezes interleaved samples so a delay change stays within ±5%.
+/// `rate` below 1 makes the chunk longer. `rate` of 1 returns a copy.
+pub fn time_stretch(samples: &[f32], rate: f64) -> Vec<f32> {
+    if samples.is_empty() || (rate - 1.0).abs() < 1e-4 || rate <= 0.0 {
+        return samples.to_vec();
+    }
+    let out_len = ((samples.len() as f64) / rate).round().max(1.0) as usize;
+    (0..out_len)
+        .map(|i| {
+            let pos = i as f64 * rate;
+            let i0 = (pos.floor() as usize).min(samples.len() - 1);
+            let i1 = (i0 + 1).min(samples.len() - 1);
+            let frac = (pos - i0 as f64) as f32;
+            samples[i0] * (1.0 - frac) + samples[i1] * frac
+        })
+        .collect()
+}
+
 fn ffmpeg_failure(stderr: &[u8], code: Option<i32>) -> MediaError {
     let text = String::from_utf8_lossy(stderr);
     let text = text.trim();
@@ -415,6 +433,16 @@ mod tests {
                 (w.iter().map(|s| s * s).sum::<f32>() / n).sqrt()
             })
             .collect()
+    }
+
+    #[test]
+    fn stretch_lengthens_a_slower_chunk() {
+        let tone: Vec<f32> = (0..480).map(|i| (i as f32 * 0.05).sin()).collect();
+        let slower = time_stretch(&tone, 0.95);
+        let faster = time_stretch(&tone, 1.05);
+        assert!(slower.len() > tone.len());
+        assert!(faster.len() < tone.len());
+        assert_eq!(time_stretch(&tone, 1.0).len(), tone.len());
     }
 
     #[test]

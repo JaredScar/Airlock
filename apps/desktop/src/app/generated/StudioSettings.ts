@@ -22,4 +22,12 @@ extra_allow: string,
 /**
  * The streamer opted in to sending transcript text to a cloud judge.
  */
-cloud_judge_consent: boolean, shortcut_veto: string, shortcut_approve: string, shortcut_dump: string, shortcut_safe: string, };
+cloud_judge_consent: boolean, shortcut_veto: string, shortcut_approve: string, shortcut_dump: string, shortcut_safe: string, 
+/**
+ * Empty until the streamer pastes a Pro key. Checked offline.
+ */
+license_key: string, 
+/**
+ * Crash and latency reports. Off, and there is no destination unless one is set.
+ */
+telemetry_opt_in: boolean, };

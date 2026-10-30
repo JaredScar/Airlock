@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Airlock</title>
+    <style>
+      :root { color-scheme: dark; --bg: #090b0e; --text: #e8edf4; --muted: #8b97a8; --line: #2a3340; --live: #ff4d4f; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+      h1 { font-size: 40px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 8px; }
+      .lede { color: var(--muted); font-size: 18px; }
+      video { width: 100%; margin: 28px 0; border: 1px solid var(--line); border-radius: 12px; background: #000; }
+      ul { padding-left: 18px; }
+      li { margin: 8px 0; }
+      code { font-family: Consolas, ui-monospace, monospace; color: #6cb6ff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Airlock</h1>
+      <p class="lede">A broadcast delay that stays on your PC. It holds the stream, catches what should not air, and lets you undo a redaction before the delay runs out.</p>
+      <video controls preload="metadata" src="demo.mp4">
+        A planted stream key is pixelated before that frame would air.
+      </video>
+      <h2>What it holds back</h2>
+      <ul>
+        <li>Word-list bleeps, spoken phone numbers, and names you mark as private.</li>
+        <li>A context check for platform rules, on this machine unless you opt into a cloud model.</li>
+        <li>On-screen keys and personal info. Secrets are pixelated. The clip above is that path on a generated frame.</li>
+      </ul>
+      <p>Point OBS at <code>rtmp://127.0.0.1:1935/live</code>. The platform key stays in the operating-system keychain.</p>
+    </main>
+  </body>
+</html>

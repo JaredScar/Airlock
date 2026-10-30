@@ -5,6 +5,7 @@
 //! twice; partial/unstable hypotheses stay internal.
 
 pub mod audio;
+pub mod models;
 pub mod scripted;
 pub mod vad;
 pub mod whisper;
@@ -12,6 +13,7 @@ pub mod whisper;
 use airlock_core::{Ts, Word};
 use thiserror::Error;
 
+pub use models::{SpeechModel, parse_vram_mb, pick_speech_model, verify_sha256};
 pub use scripted::ScriptedRecognizer;
 pub use vad::{GatedRecognizer, VadGate};
 

@@ -35,6 +35,12 @@ pub struct StudioSettings {
     pub shortcut_dump: String,
     #[serde(default = "shortcut_safe")]
     pub shortcut_safe: String,
+    /// Empty until the streamer pastes a Pro key. Checked offline.
+    #[serde(default)]
+    pub license_key: String,
+    /// Crash and latency reports. Off, and there is no destination unless one is set.
+    #[serde(default)]
+    pub telemetry_opt_in: bool,
 }
 
 fn shortcut_veto() -> String {
@@ -67,6 +73,8 @@ impl Default for StudioSettings {
             shortcut_approve: shortcut_approve(),
             shortcut_dump: shortcut_dump(),
             shortcut_safe: shortcut_safe(),
+            license_key: String::new(),
+            telemetry_opt_in: false,
         }
     }
 }

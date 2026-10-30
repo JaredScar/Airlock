@@ -61,6 +61,21 @@ impl JudgeScheduler {
     pub fn latencies_us(&self) -> &[i64] {
         &self.latencies_us
     }
+
+    /// `pct` is 50 or 95. Empty when nothing has completed.
+    pub fn percentile(&self, pct: f64) -> Option<i64> {
+        percentile(&self.latencies_us, pct)
+    }
+}
+
+pub fn percentile(samples: &[i64], pct: f64) -> Option<i64> {
+    if samples.is_empty() {
+        return None;
+    }
+    let mut owned = samples.to_vec();
+    owned.sort_unstable();
+    let rank = ((pct.clamp(0.0, 100.0) / 100.0) * (owned.len() - 1) as f64).round() as usize;
+    Some(owned[rank.min(owned.len() - 1)])
 }
 
 #[cfg(test)]
@@ -79,5 +94,9 @@ mod tests {
         assert!(sched.latencies_us().is_empty());
         assert!(sched.complete(second, 250_000));
         assert_eq!(sched.latencies_us(), &[250_000]);
+        let third = sched.begin(Ts::from_millis(5_000));
+        assert!(sched.complete(third, 100_000));
+        assert_eq!(sched.percentile(0.0), Some(100_000));
+        assert_eq!(sched.percentile(100.0), Some(250_000));
     }
 }

@@ -11,20 +11,26 @@ pub mod eval_label;
 pub mod eval_run;
 pub mod incident;
 pub mod judge_sched;
+pub mod license;
 pub mod studio;
+pub mod telemetry;
 pub mod terms;
 pub mod threads;
+pub mod watchdog;
 
 pub use eval_label::{LabeledSpan, parse_labels};
 pub use eval_run::{ClipScript, EvalReport, score_scripts};
 pub use judge_sched::JudgeScheduler;
+pub use license::{Feature, allows, issue_dev_license};
 pub use studio::StudioSettings;
+pub use telemetry::telemetry_report;
 pub use terms::{open_terms, random_key, seal_terms};
 pub use threads::{OutputSnapshot, SessionBus, SessionInbox};
+pub use watchdog::Watchdog;
 
 use airlock_core::{
-    Action, Category, DecisionEngine, Detection, Dur, Platform, Policy, Redaction, RedactionId,
-    Span, StallFallback, Target, TextBox, Ts, Word,
+    Action, Category, DecisionEngine, DelayRamp, Detection, Dur, Platform, Policy, Redaction,
+    RedactionId, Span, StallFallback, Target, TextBox, Ts, Word,
 };
 use airlock_detect::{ScreenTextScanner, SpokenPiiDetector, WordlistDetector};
 use airlock_llm::JudgeRequest;
@@ -112,6 +118,8 @@ pub struct Session {
     transcript: Vec<Word>,
     judged_until: Ts,
     live: Ts,
+    /// User delay changes move this by at most 5% of new media, so the playhead does not jump.
+    ramp: DelayRamp,
     /// Extra hold added by the stall fail-safe. Not removed when words return:
     /// shrinking it would jump the playhead forward and skip audio.
     extra_delay: Dur,
@@ -139,6 +147,7 @@ impl Session {
             transcript: Vec::new(),
             judged_until: Ts::ZERO,
             live: Ts::ZERO,
+            ramp: DelayRamp::new(cfg.policy.delay()),
             extra_delay: Dur::ZERO,
             last_word_at: None,
             stall_latched: false,
@@ -160,7 +169,13 @@ impl Session {
 
     /// How long audio is currently held. Policy delay plus any stall extension.
     pub fn hold(&self) -> Dur {
-        self.cfg.policy.delay() + self.extra_delay
+        self.ramp.current() + self.extra_delay
+    }
+
+    /// Aims the hold at a new delay. The change is applied as live media arrives.
+    pub fn set_hold_target(&mut self, delay: Dur) {
+        let ms = delay.as_millis().clamp(1_000, 60_000);
+        self.ramp.set_target(Dur::from_millis(ms));
     }
 
     fn ingest_all(&mut self, detections: Vec<Detection>) {
@@ -263,7 +278,12 @@ impl Session {
     /// Advances live media time (newest ingested timestamp). Retires redactions that
     /// have fully aired into the incident log.
     pub fn on_live_time(&mut self, live: Ts) {
+        let previous = self.live;
         self.live = self.live.max(live);
+        let elapsed = self.live - previous;
+        if elapsed > Dur::ZERO {
+            self.ramp.advance(elapsed);
+        }
         if self.safe_mode
             && let Some(id) = self.safe_mute
         {

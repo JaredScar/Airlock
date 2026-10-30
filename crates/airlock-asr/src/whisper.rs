@@ -44,6 +44,27 @@ impl WhisperRecognizer {
     }
 }
 
+/// Commits a word only after the same text appears at the start of two windows.
+#[derive(Debug, Default)]
+pub struct LocalAgreement {
+    last: Vec<String>,
+}
+
+impl LocalAgreement {
+    pub fn commit(&mut self, hypothesis: &[impl AsRef<str>]) -> Vec<String> {
+        let current: Vec<String> = hypothesis.iter().map(|s| s.as_ref().to_string()).collect();
+        let mut agreed = Vec::new();
+        for (prev, next) in self.last.iter().zip(current.iter()) {
+            if prev != next {
+                break;
+            }
+            agreed.push(next.clone());
+        }
+        self.last = current;
+        agreed
+    }
+}
+
 impl SpeechRecognizer for WhisperRecognizer {
     fn name(&self) -> &str {
         "whisper"
@@ -53,5 +74,21 @@ impl SpeechRecognizer for WhisperRecognizer {
     }
     fn flush(&mut self) -> Result<Vec<Word>, AsrError> {
         Err(AsrError::NotImplemented("WhisperRecognizer::flush"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_word_is_committed_only_when_the_next_window_agrees() {
+        let mut agree = LocalAgreement::default();
+        assert!(agree.commit(&["hello", "chat"]).is_empty());
+        assert_eq!(
+            agree.commit(&["hello", "chat", "friends"]),
+            vec!["hello", "chat"]
+        );
+        assert!(agree.commit(&["goodbye"]).is_empty());
     }
 }

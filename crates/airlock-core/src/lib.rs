@@ -12,7 +12,7 @@ pub mod model;
 pub mod policy;
 pub mod time;
 
-pub use buffer::DelayLine;
+pub use buffer::{DelayLine, DelayRamp};
 pub use decision::{Action, DecisionEngine, Redaction, RedactionId, Status, Target};
 pub use error::{Error, Result};
 pub use model::{Category, Detection, DetectorKind, Modality, Platform, Rect, TextBox, Word};

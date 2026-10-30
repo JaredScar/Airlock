@@ -183,8 +183,30 @@
         <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
         <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
         <li>A stream key stays in the OS keychain. It is not written into settings or logs.</li>
-        <li>Airlock does not send crash reports or usage statistics.</li>
+        <li>Crash and latency reports stay off unless you opt in below, and they never include the transcript or a key. No destination is configured, so nothing is sent.</li>
       </ul>
+      <label class="stall">
+        <span><input type="checkbox" [checked]="studio.settings().telemetry_opt_in" (change)="onTelemetry($event)" /> Send crash and latency reports</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Speech model</h2>
+      <p class="hint">Picked from GPU memory when a broadcast starts. 8 GB or more uses the large turbo model. 4 GB uses the distilled model. Anything smaller, or no GPU, uses small.en on the CPU. The file is kept only if its checksum matches.</p>
+    </header>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <h2>License</h2>
+      <p class="hint">Word lists, the dump button, and spoken personal info stay on without a key. The context judge, on-screen scanning, and the cloud judge are the Pro checks. The key is verified on this PC.</p>
+    </header>
+    <div class="scroll settings-body">
+      <form class="add" (submit)="$event.preventDefault()">
+        <input [value]="studio.settings().license_key" (change)="onLicense($event)" placeholder="Pro license" aria-label="License key" autocomplete="off" />
+      </form>
     </div>
   </section>
 

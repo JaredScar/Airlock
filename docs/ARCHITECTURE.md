@@ -30,7 +30,7 @@ and redacts problems in the *delayed* copy before it leaves the machine.
 | `airlock-asr` | `SpeechRecognizer` trait, audio downmix/resample, silence gate, `ScriptedRecognizer`, Whisper stub | Gate tested; Whisper TODO |
 | `airlock-llm` | `ContextJudge` trait, prompt builder, response parser, deadline budget, Ollama and Anthropic HTTP | Ollama and consented Anthropic clients tested against a local server |
 | `airlock-vision` | `TextRecognizer` trait, `FrameSampler`, downscale, region tracking, Windows OCR (`winocr` feature) | Sampler, downscale, tracking, and Windows OCR tested |
-| `airlock-media` | Audio bleep/mute with fades, delay-then-redact PCM path, AAC via the ffmpeg binary, CPU pixelate/blackout, egress config | Audio path tested on a file; RTMP ingest TODO |
+| `airlock-media` | Audio bleep/mute, delay-then-redact PCM, time-stretch, passthrough video hold, output pacer, FLV tags, AAC via ffmpeg, CPU pixelate/blackout | File audio and an hour of video timestamps tested; RTMP ingest TODO |
 | `airlock-pipeline` | `Session` orchestrator, session-thread bus, `StudioSettings`, sealed private terms, judge scheduler, eval scoring, incident exports | Implemented + end-to-end test |
 | `apps/desktop` | Tauri 2 shell + Angular review UI, settings, compact mode, global hotkeys, system tray | Demo and settings working; OBS autostart and real ingest TODO |
 

@@ -11,11 +11,15 @@
 pub mod audio_fx;
 pub mod audio_path;
 pub mod egress;
+pub mod pacer;
 pub mod video_fx;
+pub mod video_hold;
 
 #[cfg(feature = "ffmpeg")]
 pub mod ingest;
 
 pub use audio_fx::{AudioChunk, apply_audio_redactions};
-pub use audio_path::{AudioHold, MediaError, Pcm, decode_studio_pcm, encode_aac};
+pub use audio_path::{AudioHold, MediaError, Pcm, decode_studio_pcm, encode_aac, time_stretch};
 pub use egress::{EgressTarget, VideoEncoder};
+pub use pacer::{FlvMux, Pacer, push_flv};
+pub use video_hold::{VideoHold, VideoPacket};

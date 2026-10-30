@@ -19,6 +19,8 @@ export const DEFAULT_STUDIO: StudioSettings = {
   shortcut_approve: 'F9',
   shortcut_dump: 'F10',
   shortcut_safe: 'F11',
+  license_key: '',
+  telemetry_opt_in: false,
   policy: {
     delay_ms: 8000,
     merge_gap_ms: 250,
@@ -118,6 +120,14 @@ export class StudioService {
 
   setConsent(cloud_judge_consent: boolean) {
     this.commit({ ...this.settings(), cloud_judge_consent });
+  }
+
+  setLicense(license_key: string) {
+    this.commit({ ...this.settings(), license_key: license_key.trim() });
+  }
+
+  setTelemetry(telemetry_opt_in: boolean) {
+    this.commit({ ...this.settings(), telemetry_opt_in });
   }
 
   setShortcut(which: 'veto' | 'approve' | 'dump' | 'safe', value: string) {
@@ -222,6 +232,8 @@ function loadStudio(): StudioSettings {
       shortcut_approve: parsed.shortcut_approve || base.shortcut_approve,
       shortcut_dump: parsed.shortcut_dump || base.shortcut_dump,
       shortcut_safe: parsed.shortcut_safe || base.shortcut_safe,
+      license_key: parsed.license_key ?? '',
+      telemetry_opt_in: parsed.telemetry_opt_in ?? false,
       policy: {
         ...base.policy,
         ...parsed.policy,
