@@ -196,6 +196,15 @@
       <h2>Speech model</h2>
       <p class="hint">Picked from GPU memory when a broadcast starts. 8 GB or more uses the large turbo model. 4 GB uses the distilled model. Anything smaller, or no GPU, uses small.en on the CPU. The file is kept only if its checksum matches.</p>
     </header>
+    <div class="scroll settings-body">
+      <p class="hint">{{ studio.modelNote() }}</p>
+      @if (studio.modelProgress() !== null) {
+        <div class="meter" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="studio.modelProgress()">
+          <span [style.width.%]="studio.modelProgress()"></span>
+        </div>
+      }
+      <button type="button" (click)="downloadModel()">Download model</button>
+    </div>
   </section>
 
   <section class="panel">

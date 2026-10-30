@@ -13,7 +13,9 @@ pub mod whisper;
 use airlock_core::{Ts, Word};
 use thiserror::Error;
 
-pub use models::{SpeechModel, parse_vram_mb, pick_speech_model, verify_sha256};
+pub use models::{
+    SpeechModel, download_verified, file_matches, parse_vram_mb, pick_speech_model, verify_sha256,
+};
 pub use scripted::ScriptedRecognizer;
 pub use vad::{GatedRecognizer, VadGate};
 

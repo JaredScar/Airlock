@@ -11,6 +11,8 @@
 pub mod audio_fx;
 pub mod audio_path;
 pub mod egress;
+pub mod eval_media;
+pub mod link;
 pub mod pacer;
 pub mod video_fx;
 pub mod video_hold;
@@ -21,5 +23,7 @@ pub mod ingest;
 pub use audio_fx::{AudioChunk, apply_audio_redactions};
 pub use audio_path::{AudioHold, MediaError, Pcm, decode_studio_pcm, encode_aac, time_stretch};
 pub use egress::{EgressTarget, VideoEncoder};
+pub use eval_media::write_eval_clips;
+pub use link::{publish_file, receive_srt_wav, secure_publish_url};
 pub use pacer::{FlvMux, Pacer, push_flv};
 pub use video_hold::{VideoHold, VideoPacket};

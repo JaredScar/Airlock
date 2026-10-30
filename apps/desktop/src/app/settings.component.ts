@@ -37,6 +37,10 @@ export class SettingsComponent {
     { id: 'safe' as const, label: 'Safe mode' },
   ];
 
+  downloadModel() {
+    void this.studio.downloadModel();
+  }
+
   platformName(): string {
     const id = this.studio.settings().platform;
     if (id === 'twitch' || id === 'youtube' || id === 'kick') return this.names[id];

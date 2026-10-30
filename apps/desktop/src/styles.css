@@ -178,6 +178,8 @@ button.demo { padding: 10px 12px; color: var(--muted); }
 .log .panel-head, .transcript .panel-head { align-items: center; }
 .panel-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .hint, .legend { margin: 6px 0 0; color: var(--muted); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.meter { height: 8px; margin: 12px 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--info); }
 .legend { margin: 2px 0 0; }
 .scroll { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 14px; }
 .count { font: 700 11px var(--mono); background: #222a34; color: var(--text); padding: 1px 7px; border-radius: 999px; }
@@ -303,6 +305,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, .025); }
 .platforms { display: flex; gap: 8px; }
 .platform.on { border-color: var(--info); color: var(--text); background: #1a2836; }
 .settings-body { padding-top: 0; }
+.settings-body button { margin-top: 10px; }
 .data-statement { margin: 0 0 14px; padding-left: 18px; color: var(--muted); }
 .data-statement li { margin: 6px 0; }
 .chips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

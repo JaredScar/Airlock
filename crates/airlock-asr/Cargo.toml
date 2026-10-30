@@ -10,3 +10,4 @@ authors.workspace = true
 airlock-core.workspace = true
 sha2 = "0.10"
 thiserror.workspace = true
+ureq = "2.12"

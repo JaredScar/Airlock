@@ -44,6 +44,8 @@ export class StudioService {
   readonly settings = signal<StudioSettings>(loadStudio());
   readonly pack = signal('');
   readonly error = signal<string | null>(null);
+  readonly modelProgress = signal<number | null>(null);
+  readonly modelNote = signal('The file is kept only after its checksum matches.');
 
   constructor() {
     if (inDesktopShell()) void this.pullFromDesktop();
@@ -150,6 +152,30 @@ export class StudioService {
 
   reset() {
     this.commit(structuredClone(DEFAULT_STUDIO));
+  }
+
+  async downloadModel() {
+    if (!inDesktopShell()) {
+      this.modelNote.set('Open the Airlock app to download the speech model.');
+      return;
+    }
+    this.modelProgress.set(0);
+    this.modelNote.set('Downloading the speech model.');
+    const { listen } = await import('@tauri-apps/api/event');
+    const stop = await listen<{ received: number; total: number | null }>('model-progress', (event) => {
+      const total = event.payload.total ?? 0;
+      const pct = total > 0 ? Math.min(100, Math.round((100 * event.payload.received) / total)) : 0;
+      this.modelProgress.set(pct);
+    });
+    try {
+      const name = await invoke<string>('download_speech_model');
+      this.modelProgress.set(100);
+      this.modelNote.set(`${name} is ready.`);
+    } catch (e) {
+      this.modelNote.set(String(e));
+    } finally {
+      stop();
+    }
   }
 
   private commit(next: StudioSettings) {

@@ -197,6 +197,46 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+#[derive(Clone, serde::Serialize)]
+struct ModelProgress {
+    received: u64,
+    total: Option<u64>,
+}
+
+fn detect_vram_mb() -> Option<u64> {
+    let output = std::process::Command::new("nvidia-smi")
+        .args(["--query-gpu=memory.total", "--format=csv,noheader,nounits"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    airlock_asr::parse_vram_mb(&String::from_utf8_lossy(&output.stdout))
+}
+
+/// Saves the VRAM-picked ggml file under the app data directory.
+/// The file is kept only after its checksum matches. Progress events are `model-progress`.
+#[tauri::command]
+fn download_speech_model(app: AppHandle) -> Result<String, String> {
+    let model = airlock_asr::pick_speech_model(detect_vram_mb());
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| err.to_string())?
+        .join("models");
+    std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
+    let dest = dir.join(model.file_name());
+    if airlock_asr::file_matches(&dest, model.sha256()) {
+        return Ok(model.file_name().to_string());
+    }
+    let handle = app.clone();
+    airlock_asr::download_verified(model.url(), &dest, model.sha256(), |received, total| {
+        let _ = handle.emit("model-progress", ModelProgress { received, total });
+    })
+    .map_err(|err| err.to_string())?;
+    Ok(model.file_name().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -224,7 +264,8 @@ pub fn run() {
             approve,
             veto,
             dump,
-            export_incidents
+            export_incidents,
+            download_speech_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
