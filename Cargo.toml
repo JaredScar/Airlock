@@ -8,6 +8,7 @@ members = [
     "crates/airlock-vision",
     "crates/airlock-media",
     "crates/airlock-pipeline",
+    "crates/airlock-eval",
     "apps/desktop/src-tauri",
 ]
 # `cargo test` / `cargo check` at the root only touch the engine crates, so they
@@ -20,6 +21,7 @@ default-members = [
     "crates/airlock-vision",
     "crates/airlock-media",
     "crates/airlock-pipeline",
+    "crates/airlock-eval",
 ]
 
 [workspace.package]
@@ -36,6 +38,7 @@ airlock-llm = { path = "crates/airlock-llm" }
 airlock-vision = { path = "crates/airlock-vision" }
 airlock-media = { path = "crates/airlock-media" }
 airlock-pipeline = { path = "crates/airlock-pipeline" }
+airlock-eval = { path = "crates/airlock-eval" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

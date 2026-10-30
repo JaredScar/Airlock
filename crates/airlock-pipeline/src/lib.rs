@@ -8,7 +8,19 @@
 //! testable (see tests/end_to_end.rs).
 
 pub mod eval_label;
+pub mod eval_run;
 pub mod incident;
+pub mod judge_sched;
+pub mod studio;
+pub mod terms;
+pub mod threads;
+
+pub use eval_label::{LabeledSpan, parse_labels};
+pub use eval_run::{ClipScript, EvalReport, score_scripts};
+pub use judge_sched::JudgeScheduler;
+pub use studio::StudioSettings;
+pub use terms::{open_terms, random_key, seal_terms};
+pub use threads::{OutputSnapshot, SessionBus, SessionInbox};
 
 use airlock_core::{
     Action, Category, DecisionEngine, Detection, Dur, Platform, Policy, Redaction, RedactionId,
@@ -105,6 +117,9 @@ pub struct Session {
     extra_delay: Dur,
     last_word_at: Option<Ts>,
     stall_latched: bool,
+    safe_mode: bool,
+    /// Manual mute kept open while safe mode is on.
+    safe_mute: Option<RedactionId>,
     events: Vec<UiEvent>,
     aired: Vec<Redaction>,
 }
@@ -127,6 +142,8 @@ impl Session {
             extra_delay: Dur::ZERO,
             last_word_at: None,
             stall_latched: false,
+            safe_mode: false,
+            safe_mute: None,
             events: Vec::new(),
             aired: Vec::new(),
             cfg,
@@ -247,6 +264,14 @@ impl Session {
     /// have fully aired into the incident log.
     pub fn on_live_time(&mut self, live: Ts) {
         self.live = self.live.max(live);
+        if self.safe_mode
+            && let Some(id) = self.safe_mute
+        {
+            let end = self.live + Dur(1);
+            if self.engine.extend_end(id, end) {
+                self.push_upsert(id);
+            }
+        }
         let playhead = self.playhead();
         for r in self.engine.retire_before(playhead) {
             self.events.push(UiEvent::RedactionAired {
@@ -269,6 +294,24 @@ impl Session {
         for id in self.engine.dump(self.live, self.hold(), blackout_video) {
             self.push_upsert(id);
         }
+    }
+
+    /// While on, audio still in the hold stays muted as the live edge moves.
+    pub fn set_safe_mode(&mut self, on: bool) {
+        self.safe_mode = on;
+        if !on {
+            self.safe_mute = None;
+            return;
+        }
+        let ids = self.engine.dump(self.live, self.hold(), false);
+        self.safe_mute = ids.first().copied();
+        for id in ids {
+            self.push_upsert(id);
+        }
+    }
+
+    pub fn safe_mode(&self) -> bool {
+        self.safe_mode
     }
 
     /// Call after `on_live_time` when a chunk of program audio has been measured.

@@ -35,6 +35,18 @@ fn note(r: &Redaction) -> String {
     text
 }
 
+/// One eval-set line for "this was wrong". Evidence is left out entirely.
+pub fn anonymized_case(item: &Redaction) -> String {
+    serde_json::json!({
+        "clip": "correction",
+        "category": item.category,
+        "start_us": item.span.start.0,
+        "end_us": item.span.end.0,
+        "note": "marked wrong by the streamer"
+    })
+    .to_string()
+}
+
 /// One row per redaction: when, what, what was done, whether it actually applied live.
 pub fn to_csv(items: &[Redaction]) -> String {
     let mut out = String::from(
@@ -175,5 +187,15 @@ mod tests {
         assert!(vtt.starts_with("WEBVTT\n"));
         assert!(vtt.contains("00:00:01.500 --> 00:00:02.000\nprofanity — bleep\n"));
         assert!(vtt.contains("missed live"));
+    }
+
+    #[test]
+    fn a_correction_does_not_carry_evidence() {
+        let mut row = item(1_000, 2_000, false);
+        row.evidence = vec!["live_123456789_AbCdEfGhIjKlMnOpQrStUvWx".into()];
+        let line = anonymized_case(&row);
+        assert!(line.contains("profanity"));
+        assert!(!line.contains("live_"));
+        assert!(!line.contains("evidence"));
     }
 }

@@ -11,3 +11,4 @@ airlock-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+ureq = { version = "2.12", features = ["json"] }

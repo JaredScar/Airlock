@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "scripts": {
     "ng": "ng",
-    "prestart": "cargo test --manifest-path ../../Cargo.toml -p airlock-core -p airlock-pipeline export_bindings",
+    "prestart": "cargo test --manifest-path ../../Cargo.toml -p airlock-core -p airlock-pipeline export_bindings && node scripts/copy-platform-rules.mjs",
     "start": "ng serve",
-    "prebuild": "cargo test --manifest-path ../../Cargo.toml -p airlock-core -p airlock-pipeline export_bindings",
+    "prebuild": "cargo test --manifest-path ../../Cargo.toml -p airlock-core -p airlock-pipeline export_bindings && node scripts/copy-platform-rules.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "tauri": "tauri"

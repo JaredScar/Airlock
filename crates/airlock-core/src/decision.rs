@@ -389,6 +389,17 @@ impl DecisionEngine {
     pub fn all(&self) -> &[Redaction] {
         &self.redactions
     }
+
+    /// Moves a live redaction's end later without creating a second one.
+    pub fn extend_end(&mut self, id: RedactionId, end: Ts) -> bool {
+        let Some(redaction) = self.redactions.iter_mut().find(|r| r.id == id) else {
+            return false;
+        };
+        if end > redaction.span.end {
+            redaction.span.end = end;
+        }
+        true
+    }
 }
 
 #[cfg(test)]

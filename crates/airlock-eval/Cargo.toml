@@ -1,0 +1,15 @@
+[package]
+name = "airlock-eval"
+description = "Score a scripted eval corpus and print JSON plus markdown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "airlock-eval"
+path = "src/main.rs"
+
+[dependencies]
+airlock-pipeline.workspace = true
+serde_json.workspace = true

@@ -6,12 +6,14 @@
 
 pub mod audio;
 pub mod scripted;
+pub mod vad;
 pub mod whisper;
 
 use airlock_core::{Ts, Word};
 use thiserror::Error;
 
 pub use scripted::ScriptedRecognizer;
+pub use vad::{GatedRecognizer, VadGate};
 
 pub const ASR_SAMPLE_RATE: u32 = 16_000;
 

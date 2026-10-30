@@ -27,12 +27,12 @@ and redacts problems in the *delayed* copy before it leaves the machine.
 |---|---|---|
 | `airlock-core` | `Ts`/`Span` media time, `Detection`, `Policy`, `DelayLine`, `DecisionEngine` | Implemented + tested |
 | `airlock-detect` | Wordlist (leet/elongation aware, token-based), spoken PII regex, private terms, on-screen secret/PII scanner | Implemented + tested |
-| `airlock-asr` | `SpeechRecognizer` trait, audio downmix/resample, `ScriptedRecognizer`, Whisper stub | Trait + helpers done; Whisper TODO |
-| `airlock-llm` | `ContextJudge` trait, prompt builder, response parser, deadline budget, Ollama/Anthropic stubs | Transcript is a data block with instructions after it; platform packs injected; HTTP TODO |
-| `airlock-vision` | `TextRecognizer` trait, `FrameSampler`, Windows OCR stub | Sampler done; OCR TODO |
-| `airlock-media` | Audio bleep/mute with fades, CPU pixelate/blackout, egress config; ffmpeg ingest/egress behind `ffmpeg` feature | Effects done; ingest/egress TODO |
-| `airlock-pipeline` | `Session` orchestrator, `UiEvent`s, incident CSV / EDL / chapters / YouTube timestamps | Implemented + end-to-end test |
-| `apps/desktop` | Tauri 2 shell + Angular review UI; demo mode runs a scripted stream through the real engine | Demo working; real ingest TODO |
+| `airlock-asr` | `SpeechRecognizer` trait, audio downmix/resample, silence gate, `ScriptedRecognizer`, Whisper stub | Gate tested; Whisper TODO |
+| `airlock-llm` | `ContextJudge` trait, prompt builder, response parser, deadline budget, Ollama and Anthropic HTTP | Ollama and consented Anthropic clients tested against a local server |
+| `airlock-vision` | `TextRecognizer` trait, `FrameSampler`, downscale, region tracking, Windows OCR (`winocr` feature) | Sampler, downscale, tracking, and Windows OCR tested |
+| `airlock-media` | Audio bleep/mute with fades, delay-then-redact PCM path, AAC via the ffmpeg binary, CPU pixelate/blackout, egress config | Audio path tested on a file; RTMP ingest TODO |
+| `airlock-pipeline` | `Session` orchestrator, session-thread bus, `StudioSettings`, sealed private terms, judge scheduler, eval scoring, incident exports | Implemented + end-to-end test |
+| `apps/desktop` | Tauri 2 shell + Angular review UI, settings, compact mode, global hotkeys, system tray | Demo and settings working; OBS autostart and real ingest TODO |
 
 ## Core rules
 
@@ -73,6 +73,5 @@ If p95 ASR + judge exceeds `delay − 1.5s`, the UI warns and suggests a longer 
 - Media thread(s): ingest → `DelayLine`s; output pacing loop pulls due items, asks the engine
   for redactions, applies effects, encodes, sends.
 - ASR thread, OCR thread, judge thread: read from taps, send results over channels.
-- Session thread: owns `Session`, applies results, emits `UiEvent`s to Tauri.
-- The output loop needs read access to redactions: share via `Arc<RwLock<..>>` snapshot or
-  have the session thread publish an immutable snapshot each tick. Decide in task 2.1.
+- Session thread: owns `Session`, applies results, emits `UiEvent`s to Tauri, and publishes an immutable `OutputSnapshot` after each message.
+- The output loop reads that snapshot. It does not lock the engine.

@@ -1,0 +1,14 @@
+[
+  {
+    "clip": "wordlist-bleep-01",
+    "words": [
+      { "text": "fuck", "start_us": 2600000, "end_us": 2960000, "confidence": 0.99 }
+    ]
+  },
+  {
+    "clip": "spoken-phone-01",
+    "words": [
+      { "text": "631-555-0123", "start_us": 1000000, "end_us": 2400000, "confidence": 0.99 }
+    ]
+  }
+]

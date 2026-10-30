@@ -1,0 +1,203 @@
+<div class="settings">
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Platform</h2>
+      <p class="hint">One destination per session. Airlock's pack is fixed. Your rules are yours, and only this platform's list goes to the judge.</p>
+    </header>
+    <div class="scroll settings-body">
+      <div class="platforms" role="radiogroup" aria-label="Destination platform">
+        @for (id of destinations; track id) {
+          <button
+            class="platform"
+            [class.on]="studio.settings().platform === id"
+            role="radio"
+            [attr.aria-checked]="studio.settings().platform === id"
+            (click)="studio.choosePlatform(id)"
+          >{{ names[id] }}</button>
+        }
+      </div>
+      <p class="pack">{{ studio.pack() }}</p>
+      <h3>Your rules for {{ platformName() }}</h3>
+      <ul class="chips">
+        @for (rule of studio.rulesFor(); track $index) {
+          <li>
+            <span>{{ rule }}</span>
+            <button class="ghost" (click)="studio.removeRule($index)" [attr.aria-label]="'Remove rule ' + rule">Remove</button>
+          </li>
+        } @empty {
+          <li class="muted">No extra rules yet.</li>
+        }
+      </ul>
+      <form class="add" (submit)="$event.preventDefault(); addRule()">
+        <input [value]="ruleDraft()" (input)="onRule($event)" placeholder="don't say my ex's name" aria-label="New rule" />
+        <button class="approve" type="submit">Add rule</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Private terms</h2>
+      <p class="hint">Real name, town, school, employer. Matched on this PC and stored sealed in the desktop app. Never sent to the judge. Guests, Discord, and the game share this mix, so Airlock cannot tell your voice from someone else's.</p>
+    </header>
+    <div class="scroll settings-body">
+      <ul class="chips">
+        @for (term of studio.settings().private_terms; track term) {
+          <li>
+            <span>{{ term }}</span>
+            <button class="ghost" (click)="studio.removeTerm($index)" [attr.aria-label]="'Remove ' + term">Remove</button>
+          </li>
+        } @empty {
+          <li class="muted">Nothing listed.</li>
+        }
+      </ul>
+      <form class="add" (submit)="$event.preventDefault(); addTerm()">
+        <input [value]="termDraft()" (input)="onTerm($event)" placeholder="Springfield High" aria-label="New private term" />
+        <button type="submit">Add term</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel wide">
+    <header class="panel-head">
+      <h2>What gets redacted</h2>
+      <p class="hint">Applies on the next session. The browser preview is a recording, so restart the desktop demo to hear a change.</p>
+    </header>
+    <div class="scroll settings-body">
+      <label class="delay">
+        Delay
+        <b>{{ studio.settings().policy.delay_ms / 1000 | number: '1.1-1' }}s</b>
+        <input type="range" min="1" max="60" step="0.5" [value]="studio.settings().policy.delay_ms / 1000" (input)="onDelay($event)" />
+      </label>
+      <label class="stall">
+        If speech recognition stalls
+        <select [value]="studio.settings().policy.stall_fallback" (change)="onStall($event)">
+          <option value="warn">Warn only</option>
+          <option value="mute">Mute the hold</option>
+          <option value="extend_delay">Extend the delay</option>
+        </select>
+      </label>
+      <div class="policy">
+        @for (id of categories; track id) {
+          @if (studio.category(id); as row) {
+            <fieldset class="policy-row">
+              <legend>{{ label[id] }}</legend>
+              <label>Mode
+                <select [value]="row.mode" (change)="onMode(id, $event)" [attr.aria-label]="'Mode for ' + label[id]">
+                  <option value="apply">Apply</option>
+                  <option value="suggest">Suggest</option>
+                  <option value="log_only">Log only</option>
+                </select>
+              </label>
+              <label>Audio
+                <select [value]="row.audio" (change)="onAudio(id, $event)" [attr.aria-label]="'Audio for ' + label[id]">
+                  <option value="bleep">Bleep</option>
+                  <option value="mute">Mute</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <label>Video
+                <select [value]="row.video" (change)="onVideo(id, $event)" [attr.aria-label]="'Video for ' + label[id]">
+                  <option value="blur">Blur</option>
+                  <option value="pixelate">Pixelate</option>
+                  <option value="blackout">Blackout</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <label>Confidence
+                <span class="conf">
+                  <input type="range" min="0" max="1" step="0.05" [value]="row.min_confidence" (input)="onConfidence(id, $event)" [attr.aria-label]="'Confidence for ' + label[id]" />
+                  <span>{{ row.min_confidence | number: '1.2-2' }}</span>
+                </span>
+              </label>
+              <label>Before
+                <input class="pad" type="number" min="0" step="10" [value]="row.pad_before_ms" (change)="onPad(id, 'before', $event)" [attr.aria-label]="'Pad before ' + label[id]" />
+              </label>
+              <label>After
+                <input class="pad" type="number" min="0" step="10" [value]="row.pad_after_ms" (change)="onPad(id, 'after', $event)" [attr.aria-label]="'Pad after ' + label[id]" />
+              </label>
+            </fieldset>
+          }
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Extra words</h2>
+      <p class="hint">Added to the shipped lists. One entry per line. <code>word*</code> matches a prefix.</p>
+    </header>
+    <div class="scroll settings-body lists">
+      <label>
+        Also bleep
+        <textarea [value]="studio.settings().extra_profanity" (change)="onList('profanity', $event)" rows="4" aria-label="Extra profanity"></textarea>
+      </label>
+      <label>
+        Never flag
+        <textarea [value]="studio.settings().extra_allow" (change)="onList('allow', $event)" rows="4" aria-label="Allowlist"></textarea>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Judge</h2>
+      <p class="hint">The local judge is the default. A cloud judge sends the transcript off this PC, and only after you opt in. The key goes to the OS keychain, not into settings.</p>
+    </header>
+    <div class="scroll settings-body">
+      <label class="stall">
+        <span><input type="checkbox" [checked]="studio.settings().cloud_judge_consent" (change)="onConsent($event)" /> Transcript text may leave this PC</span>
+      </label>
+      <form class="add" (submit)="$event.preventDefault(); saveKey()">
+        <input type="password" autocomplete="off" [value]="keyDraft()" (input)="onKey($event)" placeholder="Cloud judge key" aria-label="Cloud judge key" />
+        <button type="submit">Save key</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Hotkeys</h2>
+      <p class="hint">Veto next, approve next, dump, and safe mode. In the desktop app these are global. Here they work while this window is focused and you are not typing in a field.</p>
+    </header>
+    <div class="scroll settings-body lists">
+      @for (row of shortcuts; track row.id) {
+        <label>
+          {{ row.label }}
+          <input [value]="shortcutValue(row.id)" (change)="onShortcut(row.id, $event)" [attr.aria-label]="row.label" />
+        </label>
+      }
+    </div>
+  </section>
+
+  <section class="panel wide">
+    <header class="panel-head">
+      <h2>What leaves this PC</h2>
+      <p class="hint">This is the list of data that can leave the machine, and the data that stays.</p>
+    </header>
+    <div class="scroll settings-body">
+      <ul class="data-statement">
+        <li>Word lists, spoken checks, and on-screen text recognition stay on this PC.</li>
+        <li>Private terms stay on this PC. The desktop app seals them and keeps the key in the OS keychain. This preview has no keychain, so terms stay in this browser's profile.</li>
+        <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
+        <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
+        <li>A stream key stays in the OS keychain. It is not written into settings or logs.</li>
+        <li>Airlock does not send crash reports or usage statistics.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel note">
+    <header class="panel-head">
+      <h2>Reset</h2>
+      <p class="hint">Restores the shipped delay, categories, and empty rule lists. Private terms return to the demo school name.</p>
+    </header>
+    <div class="settings-foot">
+      @if (studio.error(); as err) {
+        <p class="banner" role="alert">{{ err }}</p>
+      }
+      <button class="ghost" (click)="studio.reset()">Reset to defaults</button>
+    </div>
+  </section>
+</div>

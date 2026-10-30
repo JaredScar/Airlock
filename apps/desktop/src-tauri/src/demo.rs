@@ -5,7 +5,7 @@
 use crate::EVENT_CHANNEL;
 use airlock_asr::{ScriptedRecognizer, SpeechRecognizer};
 use airlock_core::{Category, Detection, DetectorKind, Modality, Rect, Span, TextBox, Ts};
-use airlock_pipeline::{Session, SessionConfig};
+use airlock_pipeline::Session;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
@@ -17,14 +17,14 @@ const SCRIPT: &str = "alright chat we are so back today welcome in everybody \
     and honestly that guy in chat should get his server ddosed lmao \
     okay let me grab my API key real quick for the bot";
 
-pub fn start(app: AppHandle, slot: Arc<Mutex<Option<Session>>>) -> Result<(), String> {
+pub fn start(
+    app: AppHandle,
+    slot: Arc<Mutex<Option<Session>>>,
+    settings: airlock_pipeline::StudioSettings,
+) -> Result<(), String> {
     {
         let mut guard = slot.lock().map_err(|_| "lock poisoned")?;
-        let cfg = SessionConfig {
-            private_terms: vec!["Springfield High".into()],
-            ..Default::default()
-        };
-        *guard = Some(Session::new(cfg));
+        *guard = Some(Session::new(settings.session_config()?));
     }
 
     std::thread::spawn(move || {

@@ -1,0 +1,74 @@
+//! OS keychain entries. Plaintext terms and cloud keys are never written to disk.
+
+use airlock_pipeline::{open_terms, random_key, seal_terms};
+use keyring::Entry;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
+
+const SERVICE: &str = "airlock";
+
+pub fn persist_terms(app: &AppHandle, terms: &[String]) -> Result<(), String> {
+    let blob = seal_terms(terms, &term_key()?).map_err(|e| e.to_string())?;
+    std::fs::write(seal_path(app)?, blob).map_err(|e| e.to_string())
+}
+
+pub fn load_terms(app: &AppHandle) -> Result<Option<Vec<String>>, String> {
+    let path = seal_path(app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let blob = std::fs::read(path).map_err(|e| e.to_string())?;
+    open_terms(&blob, &term_key()?)
+        .map(Some)
+        .map_err(|e| e.to_string())
+}
+
+pub fn store_cloud_key(key: &str) -> Result<(), String> {
+    let key = key.trim();
+    if key.is_empty() {
+        return Err("cloud judge key is empty".into());
+    }
+    let entry =
+        Entry::new(SERVICE, "anthropic").map_err(|_| "could not open the keychain".to_string())?;
+    entry
+        .set_password(key)
+        .map_err(|_| "could not store the cloud judge key".to_string())
+}
+
+fn term_key() -> Result<[u8; 32], String> {
+    let entry = Entry::new(SERVICE, "private-terms")
+        .map_err(|_| "could not open the keychain".to_string())?;
+    match entry.get_password() {
+        Ok(stored) => decode_key(&stored),
+        Err(keyring::Error::NoEntry) => {
+            let key = random_key();
+            entry
+                .set_password(&encode_key(&key))
+                .map_err(|_| "could not store the term key".to_string())?;
+            Ok(key)
+        }
+        Err(_) => Err("could not read the term key".into()),
+    }
+}
+
+fn seal_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("private-terms.seal"))
+}
+
+fn encode_key(key: &[u8; 32]) -> String {
+    key.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn decode_key(stored: &str) -> Result<[u8; 32], String> {
+    if stored.len() != 64 {
+        return Err("term key is unreadable".into());
+    }
+    let mut key = [0u8; 32];
+    for (i, byte) in key.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&stored[i * 2..i * 2 + 2], 16)
+            .map_err(|_| "term key is unreadable".to_string())?;
+    }
+    Ok(key)
+}

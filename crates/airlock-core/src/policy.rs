@@ -20,16 +20,18 @@ pub enum Mode {
     LogOnly,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum AudioAction {
     Bleep,
     Mute,
     None,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum VideoAction {
     Blur,
     Pixelate,
@@ -50,7 +52,8 @@ pub enum StallFallback {
     ExtendDelay,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct CategoryPolicy {
     pub mode: Mode,
     pub audio: AudioAction,
@@ -71,7 +74,8 @@ impl CategoryPolicy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Policy {
     /// Broadcast delay. Everything (ASR, LLM, OCR, streamer review) must fit inside it.
     pub delay_ms: i64,

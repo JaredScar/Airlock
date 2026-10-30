@@ -18,6 +18,13 @@ export type { Target } from './generated/Target';
 export type { Ts } from './generated/Ts';
 export type { UiEvent } from './generated/UiEvent';
 export type { Word } from './generated/Word';
+export type { Platform } from './generated/Platform';
+export type { Policy } from './generated/Policy';
+export type { CategoryPolicy } from './generated/CategoryPolicy';
+export type { StudioSettings } from './generated/StudioSettings';
+export type { AudioAction } from './generated/AudioAction';
+export type { VideoAction } from './generated/VideoAction';
+export type { StallFallback } from './generated/StallFallback';
 /** Media-time microseconds. Same JSON number as `Ts`. */
 export type Micros = Ts;
 
@@ -33,7 +40,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
 
 /** Mirrors `Redaction::is_active` in airlock-core. */
 export function isActive(r: Redaction): boolean {
-  if (r.action === 'log_only') return false;
+  if (r.missed_live || r.action === 'log_only') return false;
   if (r.mode === 'apply') return r.status !== 'vetoed';
   if (r.mode === 'suggest') return r.status === 'approved';
   return false;

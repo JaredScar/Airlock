@@ -6,6 +6,19 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[features]
+winocr = ["dep:windows"]
+
 [dependencies]
 airlock-core.workspace = true
 thiserror.workspace = true
+windows = { version = "0.61", optional = true, features = [
+    "Foundation",
+    "Foundation_Collections",
+    "Graphics_Imaging",
+    "Media_Ocr",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging",
+] }

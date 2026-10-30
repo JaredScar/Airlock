@@ -61,8 +61,9 @@ pub enum DetectorKind {
 }
 
 /// Target platform. Context rules differ per platform (Twitch vs YouTube vs Kick).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum Platform {
     #[default]
     Twitch,

@@ -1,117 +1,196 @@
 <header class="top">
   <div class="brand">
-    <span class="mark" aria-hidden="true"></span>
-    <span class="name">AIRLOCK</span>
+    <span class="mark" [class.live]="al.running()" aria-hidden="true"></span>
+    <div>
+      <h1 class="name">Airlock</h1>
+      <p class="tag">{{ desktop ? 'Desktop' : 'Preview' }} · {{ platformName() }}</p>
+    </div>
   </div>
 
-  <div class="meter" [class.on]="al.running()">
-    <div class="meter-labels">
-      <span>LIVE <b>{{ formatTs(al.live()) }}</b></span>
-      <span>Delay <b>{{ al.delayMs() / 1000 | number: '1.1-1' }}s</b></span>
-      <span>ON AIR <b>{{ formatTs(al.playhead()) }}</b></span>
+  <div class="readouts" [class.on]="al.running()">
+    <div class="read">
+      <span>On air</span>
+      <b>{{ formatTs(al.playhead()) }}</b>
     </div>
-    <div class="meter-track"><div class="meter-fill" [style.width.%]="delayFill()"></div></div>
+    <div class="read hold">
+      <span>Hold</span>
+      <b>{{ al.delayMs() / 1000 | number: '1.1-1' }}<small>s</small></b>
+    </div>
+    <div class="read">
+      <span>Live</span>
+      <b>{{ formatTs(al.live()) }}</b>
+    </div>
+  </div>
+
+  <div class="tape-wrap">
+    <div class="tape" role="img" aria-label="Audio still inside the delay">
+      <div class="tape-fill" [style.width.%]="delayFill()"></div>
+      @for (r of al.upcoming(); track r.id) {
+        <i class="tick" [class]="'tick cat-' + r.category" [style.left.%]="tickAt(r)" [title]="label[r.category]"></i>
+      }
+    </div>
+    <div class="tape-caption"><span>Leaving</span><span>In the hold</span><span>Just said</span></div>
   </div>
 
   <div class="actions">
+    <nav class="views" aria-label="Views">
+      <button [class.on]="page() === 'live'" (click)="page.set('live')">On air</button>
+      <button [class.on]="page() === 'settings'" (click)="page.set('settings')">Settings</button>
+    </nav>
+    <button [class.on]="compact()" [attr.aria-pressed]="compact()" (click)="toggleCompact()">Compact</button>
+    <button [class.on]="light()" [attr.aria-pressed]="light()" (click)="toggleTheme()">{{ light() ? 'Dark' : 'Light' }}</button>
+    <button [class.on]="safe()" [attr.aria-pressed]="safe()" (click)="toggleSafe()">Safe</button>
     <label class="blackout">
       <input type="checkbox" [checked]="blackoutVideo()" (change)="setBlackout($event)" />
       Black out video
     </label>
     <button class="dump" (click)="dump()" [disabled]="!al.running()">Dump</button>
-    <button class="primary" (click)="al.startDemo()">{{ al.running() ? 'Restart demo' : 'Run demo' }}</button>
+    <button class="ghost demo" (click)="al.startDemo()">{{ al.running() ? 'Restart' : 'Run demo' }}</button>
   </div>
 </header>
 
+@if (page() === 'settings') {
+  <app-settings />
+} @else {
 <details class="setup">
-  <summary>OBS setup</summary>
-  <p>Airlock sits on this PC between OBS and the platform. Point OBS at Airlock, not at Twitch.</p>
-  <ol>
-    <li>Settings → Stream → Service: <b>Custom</b>.</li>
-    <li>Server: <code>rtmp://127.0.0.1:1935/live</code></li>
-    <li>Stream key: <code>airlock</code>. This is only the local hop. The platform key stays in the OS keychain and is never typed into OBS.</li>
-  </ol>
-  <p>Use a high bitrate on this local hop. Airlock passes video through untouched and only re-encodes audio.</p>
-  <ul>
-    <li>Output mode: Advanced. Encoder: NVENC, or x264 on a machine without it.</li>
-    <li>Rate control: CBR. Bitrate: 15000 Kbps at 1080p. Keyframe interval: 2 seconds.</li>
-    <li>Audio: 48 kHz, 320 Kbps.</li>
-  </ul>
+  <summary>
+    <span class="sum-label">OBS</span>
+    <code>rtmp://127.0.0.1:1935/live</code>
+    <span class="sum-key">key <code>airlock</code></span>
+  </summary>
+  <div class="setup-body">
+    <p>Point OBS at this PC, not at the platform. Airlock holds the stream, then forwards the clean copy.</p>
+    <ol>
+      <li>Settings → Stream → Service: <b>Custom</b>.</li>
+      <li>Server: <code>rtmp://127.0.0.1:1935/live</code></li>
+      <li>Stream key: <code>airlock</code>. That key is only the local hop. The platform key stays in the OS keychain.</li>
+    </ol>
+    <ul>
+      <li>Output mode: Advanced. Encoder: NVENC, or x264 without it.</li>
+      <li>CBR, 15000 Kbps at 1080p, keyframe interval 2 seconds.</li>
+      <li>Audio: 48 kHz, 320 Kbps. Video passes through untouched.</li>
+    </ul>
+  </div>
 </details>
+
+@if (safe()) {
+  <div class="banner bad" role="status">Safe mode is on. Audio still in the hold stays muted.</div>
+}
 
 @if (al.stall(); as stall) {
   <div class="banner bad" role="alert">{{ stall }}</div>
 }
 
 @if (al.error(); as err) {
-  <div class="banner">{{ err }}</div>
+  <div class="banner" role="status">{{ err }}</div>
 }
 
 <main class="grid">
-  <section class="panel queue">
-    <h2>In the airlock <span class="count">{{ al.upcoming().length }}</span></h2>
-    <p class="hint">Everything here hasn't aired yet. Veto a redaction or approve a suggestion before the countdown ends.</p>
-
-    @for (r of al.upcoming(); track r.id) {
-      <article class="card" [class]="'card cat-' + r.category" [class.airing]="isAiring(r)" [class.inactive]="!isActive(r)">
-        <div class="card-head">
-          <span class="chip">{{ label[r.category] }}</span>
-          <span class="action">{{ isActive(r) ? r.action : (r.mode === 'suggest' ? 'suggested ' + r.action : 'off') }}</span>
-          <span class="eta">
-            @if (isAiring(r)) { ON AIR } @else { airs in {{ secondsUntilAir(r) | number: '1.1-1' }}s }
-          </span>
+  <section class="panel queue" aria-label="Redactions still in the delay">
+    <header class="panel-head">
+      <h2>In the hold <span class="count">{{ al.upcoming().length }}</span></h2>
+      <p class="hint">Still on this machine. Let it air, or redact a suggestion, before the countdown ends.</p>
+    </header>
+    <div class="scroll">
+      @for (r of al.upcoming(); track r.id) {
+        <article class="card" [class]="'card cat-' + r.category" [class.airing]="isAiring(r)" [class.inactive]="!isActive(r)">
+          <div class="eta" [attr.aria-label]="isAiring(r) ? 'On air now' : 'Airs in ' + (secondsUntilAir(r) | number: '1.1-1') + ' seconds'">
+            @if (isAiring(r)) {
+              <b>Live</b>
+            } @else {
+              <b>{{ secondsUntilAir(r) | number: '1.1-1' }}</b>
+              <span>sec</span>
+            }
+          </div>
+          <div class="card-body">
+            <div class="card-head">
+              <span class="chip">{{ label[r.category] }}</span>
+              <span class="action">{{ isActive(r) ? r.action : (r.mode === 'suggest' ? 'suggested ' + r.action : 'will air') }}</span>
+            </div>
+            <p class="reason">{{ r.reasons.join(' · ') }}</p>
+            @if (r.evidence.length) {
+              <p class="evidence">{{ r.evidence.join('  ') }}</p>
+            }
+            <div class="card-foot">
+              <span class="meta">{{ formatTs(r.span.start) }}–{{ formatTs(r.span.end) }} · {{ (r.confidence * 100) | number: '1.0-0' }}%</span>
+              @if (r.mode === 'suggest' && r.status !== 'approved') {
+                <button class="approve" (click)="al.approve(r.id)">Redact</button>
+              }
+              @if (isActive(r)) {
+                <button class="veto" (click)="al.veto(r.id)">Let it air</button>
+              }
+            </div>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty">
+          <b>Nothing in the hold</b>
+          <span>Flags show up here while the delay still has them.</span>
         </div>
-        <div class="reason">{{ r.reasons.join(' · ') }}</div>
-        @if (r.evidence.length) {
-          <div class="evidence">{{ r.evidence.join('  ') }}</div>
-        }
-        <div class="card-foot">
-          <span class="meta">{{ formatTs(r.span.start) }}–{{ formatTs(r.span.end) }} · {{ (r.confidence * 100) | number: '1.0-0' }}% · {{ r.sources.join(', ') }}</span>
-          @if (r.mode === 'suggest' && r.status !== 'approved') {
-            <button class="approve" (click)="al.approve(r.id)">Redact</button>
-          }
-          @if (isActive(r)) {
-            <button class="veto" (click)="al.veto(r.id)">Let it air</button>
-          }
-        </div>
-      </article>
-    } @empty {
-      <div class="empty">Nothing flagged in the delay window.</div>
-    }
-  </section>
-
-  <section class="panel transcript">
-    <h2>Transcript</h2>
-    <p class="hint"><i class="k held"></i>held <i class="k aired"></i>aired <i class="k flagged"></i>flagged <i class="k redacted"></i>will be redacted</p>
-    <div class="words">
-      @for (w of al.words(); track w.span.start) {
-        <span class="w" [class]="'w ' + wordState(w)">{{ w.text }}</span>
       }
     </div>
   </section>
 
-  <section class="panel log">
-    <h2>
-      Incident log <span class="count">{{ al.aired().length }}</span>
-      <span class="exports">
+  <section class="panel transcript" aria-label="Transcript">
+    <header class="panel-head">
+      <h2>Transcript</h2>
+      <p class="legend">
+        <i class="k held"></i>held
+        <i class="k aired"></i>aired
+        <i class="k flagged"></i>flagged
+        <i class="k redacted"></i>redacted
+      </p>
+    </header>
+    <div class="scroll words">
+      @for (w of al.words(); track w.span.start) {
+        <span class="w" [class]="'w ' + wordState(w)">{{ w.text }}</span>
+      } @empty {
+        <div class="empty">
+          <b>Waiting for speech</b>
+          <span>Words land here as they are recognized.</span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="panel log" aria-label="Incident log">
+    <header class="panel-head">
+      <h2>Incident log <span class="count">{{ al.aired().length }}</span></h2>
+      <div class="exports">
         <button class="ghost" (click)="download('csv')" [disabled]="!al.aired().length">CSV</button>
         <button class="ghost" (click)="download('edl')" [disabled]="!al.aired().length">EDL</button>
         <button class="ghost" (click)="download('chapters')" [disabled]="!al.aired().length">Chapters</button>
         <button class="ghost" (click)="download('youtube')" [disabled]="!al.aired().length">YouTube</button>
-      </span>
-    </h2>
-    <table>
-      <thead><tr><th>Time</th><th>Category</th><th>Outcome</th><th>Reason</th></tr></thead>
-      <tbody>
-        @for (r of al.aired(); track r.id) {
-          <tr>
-            <td>{{ formatTs(r.span.start) }}</td>
-            <td>{{ label[r.category] }}</td>
-            <td [class.ok]="isActive(r)" [class.missed]="r.missed_live">{{ r.missed_live ? 'missed live' : (isActive(r) ? r.action : 'aired unredacted') }}</td>
-            <td>{{ r.reasons.join(' · ') }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+        <label class="blackout">
+          <input type="checkbox" [checked]="shareCorrections()" (change)="setShare($event)" />
+          Save corrections
+        </label>
+      </div>
+    </header>
+    <div class="scroll">
+      @if (al.aired().length) {
+        <table>
+          <thead><tr><th>Time</th><th>Category</th><th>Outcome</th><th>Reason</th><th></th></tr></thead>
+          <tbody>
+            @for (r of al.aired(); track r.id) {
+              <tr [class]="'cat-' + r.category">
+                <td class="time">{{ formatTs(r.span.start) }}</td>
+                <td><span class="chip">{{ label[r.category] }}</span></td>
+                <td [class.ok]="isActive(r)" [class.missed]="r.missed_live">{{ r.missed_live ? 'missed live' : (isActive(r) ? r.action : 'aired') }}</td>
+                <td class="why">{{ r.reasons.join(' · ') }}</td>
+                <td><button class="ghost" (click)="markWrong(r)" [disabled]="!shareCorrections()">Wrong</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <div class="empty">
+          <b>No incidents yet</b>
+          <span>What has already aired is listed here for the VOD.</span>
+        </div>
+      }
+    </div>
   </section>
 </main>
+}
+

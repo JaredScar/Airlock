@@ -13,6 +13,11 @@ airlock-llm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ts-rs.workspace = true
+aes-gcm = "0.10"
+rand = "0.8"
+thiserror.workspace = true
 
 [dev-dependencies]
 airlock-asr.workspace = true
+airlock-media.workspace = true
+airlock-vision.workspace = true

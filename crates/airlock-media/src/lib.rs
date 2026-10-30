@@ -9,6 +9,7 @@
 //! remuxed without decode/re-encode. Cheap, and the Phase 1 MVP.
 
 pub mod audio_fx;
+pub mod audio_path;
 pub mod egress;
 pub mod video_fx;
 
@@ -16,4 +17,5 @@ pub mod video_fx;
 pub mod ingest;
 
 pub use audio_fx::{AudioChunk, apply_audio_redactions};
+pub use audio_path::{AudioHold, MediaError, Pcm, decode_studio_pcm, encode_aac};
 pub use egress::{EgressTarget, VideoEncoder};
