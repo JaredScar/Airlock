@@ -24,6 +24,37 @@ pub fn secure_publish_url(base: &str, key: &str) -> String {
     }
 }
 
+/// Delay before retry number `attempt` (1 is the first retry): 250 ms, then double, capped at 8 s.
+pub fn reconnect_backoff(attempt: u32) -> std::time::Duration {
+    let step = attempt.saturating_sub(1).min(5);
+    std::time::Duration::from_millis(250_u64 << step)
+}
+
+/// Publishes `input`, and on failure waits via `pause` and tries again.
+/// `pause` receives the backoff so tests can bring the server back without sleeping the full delay.
+/// The URL is removed from any error text.
+pub fn publish_with_retry(
+    input: &Path,
+    url: &str,
+    attempts: u32,
+    mut pause: impl FnMut(std::time::Duration),
+) -> Result<(), MediaError> {
+    let attempts = attempts.max(1);
+    let mut last_err = MediaError::Ffmpeg("publish failed".into());
+    for attempt in 1..=attempts {
+        match publish_file(input, url) {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                last_err = err;
+                if attempt < attempts {
+                    pause(reconnect_backoff(attempt));
+                }
+            }
+        }
+    }
+    Err(last_err)
+}
+
 /// Sends a media file to an RTMP or RTMPS URL. The URL is not included in the error.
 pub fn publish_file(input: &Path, url: &str) -> Result<(), MediaError> {
     run_ffmpeg(
@@ -134,6 +165,81 @@ mod tests {
         let message = redacted_tail(b"connect failed rtmp://secret/live", "rtmp://secret/live");
         assert!(!message.contains("secret"));
         assert!(message.contains("[redacted]"));
+        assert_eq!(reconnect_backoff(1), Duration::from_millis(250));
+        assert_eq!(reconnect_backoff(2), Duration::from_millis(500));
+        assert_eq!(reconnect_backoff(6), Duration::from_millis(8_000));
+        assert_eq!(reconnect_backoff(9), Duration::from_millis(8_000));
+    }
+
+    #[test]
+    fn publish_retries_when_the_listener_comes_back() {
+        if !ffmpeg_present() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("airlock-retry-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("in.flv");
+        let made = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=1",
+                "-c:a",
+                "aac",
+                "-f",
+                "flv",
+            ])
+            .arg(&src)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        let port = {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.local_addr().unwrap().port()
+        };
+        let url = format!("rtmp://127.0.0.1:{port}/live/test-key");
+        let out = dir.join("out.flv");
+        let child = std::sync::Mutex::new(None);
+        let published = publish_with_retry(&src, &url, 3, |_| {
+            let mut slot = child.lock().unwrap();
+            if slot.is_none() {
+                *slot = Some(
+                    Command::new("ffmpeg")
+                        .args([
+                            "-y",
+                            "-loglevel",
+                            "error",
+                            "-rtmp_listen",
+                            "1",
+                            "-timeout",
+                            "8",
+                            "-i",
+                            &url,
+                            "-c",
+                            "copy",
+                        ])
+                        .arg(&out)
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .spawn()
+                        .unwrap(),
+                );
+                thread::sleep(Duration::from_millis(500));
+            }
+        });
+        if let Some(mut listen) = child.lock().unwrap().take() {
+            let _ = listen.wait();
+        }
+        published.expect("retry");
+        let len = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
+        assert!(len > 100, "listener file was {len} bytes");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

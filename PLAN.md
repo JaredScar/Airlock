@@ -62,7 +62,7 @@ Video is passed through untouched (no re-encode).
 - [x] 1.4 Video passthrough: delay encoded video packets in a `DelayLine` keyed on the same `Ts`; remux unchanged. — done 2026-10-29: encoded packets wait on the same clock as the audio. An hour of 30 fps timestamps stays within one frame, keyframe order is kept, and a generated file passes ffprobe with audio and video starts inside one frame.
   - *Done when:* output keyframes and timestamps are valid (ffprobe clean), A/V sync within 1 frame after 1 hour.
 - [x] 1.5 Output pacing loop: drives the playhead from a monotonic wall clock anchored at first packet; drains both delay lines; muxes FLV; pushes to RTMPS egress. — done 2026-10-29: the pacer and FLV tags were already tested. A platform URL is rewritten to `rtmps://` and the key is removed from error text. ffmpeg publishes a one-second file to a local RTMP listen and the file plays back. The 30-minute Twitch handshake is still 1.6.
-- [ ] 1.6 Egress: RTMPS to Twitch (then YouTube, Kick) with reconnect/backoff; stream key read from OS keychain (`keyring` crate) via `EgressTarget.stream_key_ref`, never written to disk or logs.
+- [ ] 1.6 Egress: RTMPS to Twitch (then YouTube, Kick) with reconnect/backoff; stream key read from OS keychain (`keyring` crate) via `EgressTarget.stream_key_ref`, never written to disk or logs. Local retry is tested: the first publish fails, the listener comes back, and the next attempt writes the file. Backoff is 250 ms, doubling to 8 s. `store_stream_key` refuses an empty key and does not put the name in the error. The 30-minute Twitch soak is still blocked without a stream key.
   - *Done when:* a 30-minute test stream to a private/unlisted channel has no drops; killing the network for 10s recovers.
 - [ ] 1.7 ASR tap (temporary): feed the live edge to a cloud STT with word timestamps (Deepgram or AssemblyAI streaming) behind `SpeechRecognizer`, so Phase 1 ships before local Whisper. Opt-in, key in keychain.
 - [x] 1.8 **Dump button** (classic broadcast delay feature): one click/hotkey mutes all audio currently in the buffer (and optionally blacks out video) as a `Category`-less manual redaction. — done 2026-10-28: `DecisionEngine::dump` mutes (T−delay, T]; video blackout is optional and off by default. Does not rebuild the delay.
@@ -74,7 +74,7 @@ Video is passed through untouched (no re-encode).
 ## Phase 2: Local speech recognition + spoken PII
 
 - [x] 2.1 Decide threading/ownership model for live redactions (session thread publishes immutable snapshots vs. shared `RwLock`) and implement channels between media, ASR, judge, OCR and session threads. — done 2026-10-28: workers send `SessionInbox`. The session thread publishes an `OutputSnapshot`. The engine is not shared.
-- [ ] 2.2 `WhisperRecognizer` via `whisper-rs` (feature `whisper`, sub-feature `cuda`): sliding window (3s/1s hop), word timestamps, LocalAgreement-2 commit policy so words are never emitted twice or retracted. LocalAgreement-2 is tested. The model run and the latency bar are not.
+- [ ] 2.2 `WhisperRecognizer` via `whisper-rs` (feature `whisper`, sub-feature `cuda`): sliding window (3s/1s hop), word timestamps, LocalAgreement-2 commit policy so words are never emitted twice or retracted. LocalAgreement-2 and the 3s/1s window are tested. whisper-rs 0.16 does not build here: its build script requires libclang (`clang.dll`), which is not installed. The latency bar is not measured.
   - *Done when:* on the eval set (Phase 6), p95 word finalization latency ≤ 1.5s on an RTX 5090 and WER within 2 points of offline Whisper on the same clips.
 - [x] 2.3 Model manager: download/verify ggml models on first run with progress UI; pick a default by detected GPU/VRAM; CPU fallback (`small.en`). — done 2026-10-29: VRAM picks small.en, distil-large-v3, or large-v3-turbo. A download reports bytes received and the file is renamed into place only after the pinned SHA-256 matches. Settings has the progress bar. The preview tells you to open the desktop app. The model is not fetched until that button is pressed.
 - [x] 2.4 VAD gate (Silero VAD or whisper's built-in) so silence doesn't burn GPU or produce hallucinated words. — done 2026-10-28: an energy gate with an 8-chunk hangover sits in front of any recognizer. Silence is not forwarded. A neural VAD waits for the Whisper feature.
@@ -97,7 +97,7 @@ Video is passed through untouched (no re-encode).
 ## Phase 4: On-screen secrets and PII
 
 - [ ] 4.1 Video transcode path: decode frames (hardware decode), apply `video_fx`, encode with NVENC/AMF/QSV (fallback x264). Passthrough stays the default until a video category is enabled.
-  - *Done when:* 1080p60 transcode adds < 1 frame of latency and < 10% GPU on the dev machine. Measured 2026-10-29: NVENC low-latency 1080p60 at 6 Mbps, paced for 8 seconds, ran at 1.05x. A one-second burst encoded in 0.17s, about 2.8 ms per frame. During the paced encode, nvidia-smi showed GPU 16–29% and the encoder at 0–4%. The GPU column is over 10%, so this stays open.
+  - *Done when:* 1080p60 transcode adds < 1 frame of latency and < 10% GPU on the dev machine. Measured 2026-10-29: NVENC low-latency 1080p60 at 6 Mbps, paced for 8 seconds, ran at 1.05x. A one-second burst encoded in 0.17s, about 2.8 ms per frame. During the paced encode, nvidia-smi showed GPU 16–29% and the encoder at 0–4%. The GPU column is over 10%, so this stays open. 2026-10-30: a generated clip is decoded, pixelated with `pixelate_bgra`, and encoded (NVENC, or x264 if NVENC is absent). The left half of the frame changes more than the untouched right half.
 - [x] 4.2 Analysis frame tap: `FrameSampler` at 4 fps, downscale for OCR, keep normalized coordinates. — done 2026-10-28: 4 fps sampler was already tested. `downscale_bgra` shrinks the long edge and leaves coordinates normalized.
 - [x] 4.3 `WindowsOcr` via the `windows` crate (`Windows.Media.Ocr`); returns line-level boxes. Evaluate PaddleOCR (ONNX Runtime + CUDA) as a higher-accuracy option behind the same trait. — done 2026-10-28: feature `winocr` reads a painted word into normalized line boxes. PaddleOCR stays a later optional trait impl; it is not a dependency.
 - [x] 4.4 Retroactive blur: a detection at sample k covers from sample k−1 (already provided by `FrameSampler::offer`) plus policy padding. Verify with a test video where a key appears for a single frame between samples. — done 2026-10-28: a key seen at the 250 ms sample covers the frame at 100 ms, and pixelating that region changes the synthetic frame.
@@ -127,7 +127,7 @@ Video is passed through untouched (no re-encode).
 
 ## Phase 7: Performance and hardening
 
-- [ ] 7.1 Move blur/pixelate to GPU (wgpu compute or FFmpeg CUDA filters) once 4.1 profiling says so.
+- [x] 7.1 Move blur/pixelate to GPU (wgpu compute or FFmpeg CUDA filters) once 4.1 profiling says so. — done 2026-10-30: a region is scaled down and back up with `scale_cuda` nearest-neighbor, composited with `overlay_cuda`, and encoded with NVENC. A 256×128 clip changes inside the region and leaves the other side alone. Machines without CUDA keep the in-memory path. The 1080p60 GPU budget stays 4.1.
 - [x] 7.2 Adjustable delay mid-stream: ramp the delay by time-stretching audio slightly (±5%) instead of jumping. — done 2026-10-29: a new delay moves by at most 5% of each new slice of media. A one-second step from 8s toward 10s lands at 8.05s. Slower playback stretches the chunk.
 - [x] 7.3 Crash safety: if Airlock dies, the stream dies. Document the OBS backup-server setting; add a watchdog that restarts the pipeline and resumes egress within seconds. — done 2026-10-29: the setup guide tells the streamer to set the platform as OBS's backup server. A two-second silence restarts the watchdog once. Live egress is still 1.6.
 - [x] 7.4 Memory caps on all buffers; soak test 8 hours with no growth. — done 2026-10-29: a delay line drops the oldest item past its cap. Eight hours of 20 ms chunks, pushed and drained, stay under 500 items.
@@ -136,7 +136,7 @@ Video is passed through untouched (no re-encode).
 
 ## Phase 8: Ship
 
-- [ ] 8.1 Windows installer via Tauri bundler (NSIS/MSI), code signing, auto-update (`tauri-plugin-updater`).
+- [ ] 8.1 Windows installer via Tauri bundler (NSIS/MSI), code signing, auto-update (`tauri-plugin-updater`). 2026-10-30: an unsigned NSIS setup built (`Airlock_0.1.0_x64-setup.exe`, 3.27 MiB) with `--no-sign`. A parallel release compile hit a rustc access violation; one cargo job finished it. Code signing needs a certificate and auto-update needs a publish host, so this stays open.
 - [ ] 8.2 macOS build (Apple Vision OCR instead of Windows OCR; VideoToolbox encode).
 - [x] 8.3 Licensing: free tier (wordlist + dump + spoken PII) vs. Pro (context judge, screen scanning, multistream, cloud providers). License key check that works offline. — done 2026-10-29: an empty key keeps the free checks. A Pro key is an offline HMAC. The signing key in the repo is a development key until pricing is decided. Multistream is still later.
 - [x] 8.4 Privacy policy and in-app data statement: what (if anything) leaves the machine, per provider. — done 2026-10-28: `docs/PRIVACY.md` and the settings panel say local checks and Ollama stay on the PC, Anthropic gets the transcript only with consent, private terms never leave, and there is no telemetry.
@@ -191,6 +191,9 @@ Video is passed through untouched (no re-encode).
 - D34 2026-10-29: Telemetry is opt-in and has no destination. The only fields are kind and latency. Transcripts, terms, and keys are not fields.
 - D35 2026-10-29: A speech model is downloaded over HTTPS into the app data `models` folder. The partial file is deleted unless its SHA-256 matches the pin in the binary. Settings shows bytes received. Nothing is fetched until the button is pressed.
 - D36 2026-10-29: SRT ingest and the publish step call the ffmpeg on PATH. A platform base of `rtmp://` is rewritten to `rtmps://`. Error text has the URL removed. The local test listens with RTMP because this ffmpeg build's RTMP listen is the stand-in; the Twitch soak is 1.6.
+- D37 2026-10-30: A failed publish waits 250 ms and doubles that wait up to 8 s, then tries the same URL again. The stream key is a keychain entry named by `stream_key_ref`. It is not written into the error.
+- D38 2026-10-30: A video redaction decodes to BGRA, runs `pixelate_bgra`, and encodes with NVENC when that encoder exists. Otherwise it uses x264. Passthrough stays the default until a video category is on. The 1080p60 GPU budget is still over 10%.
+- D39 2026-10-30: A video redaction pixelates on the GPU. The region is scaled down and back up with `scale_cuda` nearest-neighbor, then `overlay_cuda` puts it back. NVENC encodes frames of at least 256×128. A missing CUDA device, or a smaller frame, uses the in-memory pixelate. Blur uses this same block pixelate, because a light blur can be undone.
 
 ## Open questions (for Jared)
 

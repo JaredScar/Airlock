@@ -23,6 +23,28 @@ pub fn load_terms(app: &AppHandle) -> Result<Option<Vec<String>>, String> {
         .map_err(|e| e.to_string())
 }
 
+#[allow(dead_code)] // egress calls this once a platform session exists (PLAN 1.6)
+pub fn store_stream_key(key_ref: &str, key: &str) -> Result<(), String> {
+    let key = key.trim();
+    if key_ref.trim().is_empty() || key.is_empty() {
+        return Err("stream key is empty".into());
+    }
+    let entry =
+        Entry::new(SERVICE, key_ref).map_err(|_| "could not open the keychain".to_string())?;
+    entry
+        .set_password(key)
+        .map_err(|_| "could not store the stream key".to_string())
+}
+
+#[allow(dead_code)] // egress calls this once a platform session exists (PLAN 1.6)
+pub fn load_stream_key(key_ref: &str) -> Result<String, String> {
+    let entry =
+        Entry::new(SERVICE, key_ref).map_err(|_| "could not open the keychain".to_string())?;
+    entry
+        .get_password()
+        .map_err(|_| "could not read the stream key".to_string())
+}
+
 pub fn store_cloud_key(key: &str) -> Result<(), String> {
     let key = key.trim();
     if key.is_empty() {
@@ -59,6 +81,20 @@ fn seal_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn encode_key(key: &[u8; 32]) -> String {
     key.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_empty_stream_key_is_refused() {
+        if let Ok(entry) = Entry::new(SERVICE, "airlock-test-stream") {
+            let _ = entry.delete_credential();
+        }
+        let err = store_stream_key("airlock/twitch", " ").unwrap_err();
+        assert_eq!(err, "stream key is empty");
+    }
 }
 
 fn decode_key(stored: &str) -> Result<[u8; 32], String> {

@@ -1,5 +1,6 @@
-//! Video redaction effects on CPU frames. Good enough for Phase 1–4; move to a GPU
-//! shader (or FFmpeg CUDA filters) once profiling says so (PLAN.md Phase 6).
+//! In-memory video redaction. The file encode path pixelates on the GPU
+//! (`encode_redacted`). These functions stay for a frame that is already in memory,
+//! and for machines where CUDA is missing.
 
 use airlock_core::Rect;
 
