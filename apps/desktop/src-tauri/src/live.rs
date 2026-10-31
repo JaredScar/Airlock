@@ -1,15 +1,17 @@
 //! Go live: listen for one local publisher, push its audio through the delay,
-//! and run Whisper on a 16 kHz copy when the speech model is on disk.
+//! run Whisper on a 16 kHz copy when the speech model is on disk, and ask the
+//! context judge when a Pro license is saved.
 
 use crate::EVENT_CHANNEL;
 use airlock_asr::audio::{downmix_to_mono, has_speech_energy, resample_linear};
 use airlock_asr::{ASR_SAMPLE_RATE, SpeechRecognizer, WhisperConfig, WhisperRecognizer};
 use airlock_core::{Dur, Platform, StallFallback, Ts};
+use airlock_llm::{AnthropicJudge, ContextJudge, JudgeRequest, OllamaJudge};
 use airlock_media::{
     AudioHold, DelayedForward, ForwardStep, INGEST_PORT, VideoHold, key_account, platform_name,
     publish_base, secure_publish_url, serve_capture,
 };
-use airlock_pipeline::{Session, UiEvent};
+use airlock_pipeline::{Feature, JudgeScheduler, JudgeWindow, Session, UiEvent, allows};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -26,6 +28,9 @@ pub fn start(
     let fallback = config.policy.stall_fallback;
     let delay = config.policy.delay();
     let platform = settings.platform;
+    let judge_on = allows(&settings.license_key, Feature::ContextJudge);
+    let cloud = settings.cloud_judge_consent && allows(&settings.license_key, Feature::CloudJudge);
+    let rules = settings.active_rules().to_vec();
     let forward_url = publish_target(platform);
     let dir = app.path().app_data_dir().map_err(|err| err.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
@@ -52,8 +57,27 @@ pub fn start(
             let app_asr = app.clone();
             let slot_asr = Arc::clone(&slot);
             let generation_asr = Arc::clone(&generation);
+            let judge = judge_on.then(|| {
+                spawn_judge(
+                    app.clone(),
+                    Arc::clone(&slot),
+                    Arc::clone(&generation),
+                    mine,
+                    platform,
+                    rules,
+                    cloud,
+                )
+            });
             std::thread::spawn(move || {
-                recognize(app_asr, slot_asr, generation_asr, mine, model_path, rx);
+                recognize(
+                    app_asr,
+                    slot_asr,
+                    generation_asr,
+                    mine,
+                    model_path,
+                    judge,
+                    rx,
+                );
             });
             Some(tx)
         } else {
@@ -209,6 +233,7 @@ fn recognize(
     generation: Arc<AtomicU64>,
     mine: u64,
     model_path: std::path::PathBuf,
+    judge: Option<JudgeHook>,
     rx: std::sync::mpsc::Receiver<(Ts, Vec<f32>)>,
 ) {
     // This build has no CUDA toolkit, so the model runs on CPU.
@@ -232,7 +257,7 @@ fn recognize(
             break;
         }
         match recognizer.push(&samples, start) {
-            Ok(words) => deliver_words(&app, &slot, words),
+            Ok(words) => deliver_words(&app, &slot, words, judge.as_ref()),
             Err(err) => {
                 report_recognizer_failure(&app, &slot, &err.to_string());
                 return;
@@ -240,24 +265,55 @@ fn recognize(
         }
     }
     if let Ok(words) = recognizer.flush() {
-        deliver_words(&app, &slot, words);
+        deliver_words(&app, &slot, words, judge.as_ref());
     }
 }
 
-fn deliver_words(app: &AppHandle, slot: &Mutex<Option<Session>>, words: Vec<airlock_core::Word>) {
+fn deliver_words(
+    app: &AppHandle,
+    slot: &Mutex<Option<Session>>,
+    words: Vec<airlock_core::Word>,
+    judge: Option<&JudgeHook>,
+) {
     if words.is_empty() {
         return;
     }
-    let Ok(mut guard) = slot.lock() else {
+    let count = words.len();
+    let now = words.last().map(|word| word.span.end).unwrap_or(Ts::ZERO);
+    let pending = {
+        let Ok(mut guard) = slot.lock() else {
+            return;
+        };
+        let Some(session) = guard.as_mut() else {
+            return;
+        };
+        session.on_words(words);
+        for event in session.drain_events() {
+            let _ = app.emit(EVENT_CHANNEL, &event);
+        }
+        judge.map(|_| (session.next_judge_window(), session.hold()))
+    };
+    let Some(judge) = judge else {
         return;
     };
-    let Some(session) = guard.as_mut() else {
+    let Some((Some(window), delay)) = pending else {
         return;
     };
-    session.on_words(words);
-    for event in session.drain_events() {
-        let _ = app.emit(EVENT_CHANNEL, &event);
+    let mut sched = match judge.sched.lock() {
+        Ok(sched) => sched,
+        Err(_) => return,
+    };
+    if !sched.due(count, now) {
+        return;
     }
+    let generation = sched.begin(now);
+    drop(sched);
+    let _ = judge.tx.send(JudgeJob {
+        generation,
+        window,
+        delay,
+        started: std::time::Instant::now(),
+    });
 }
 
 fn report_recognizer_failure(app: &AppHandle, slot: &Mutex<Option<Session>>, detail: &str) {
@@ -277,6 +333,135 @@ fn report_recognizer_failure(app: &AppHandle, slot: &Mutex<Option<Session>>, det
             message: format!("Speech recognition could not run. {detail}"),
         },
     );
+}
+
+struct JudgeJob {
+    generation: u64,
+    window: JudgeWindow,
+    delay: Dur,
+    /// Wall clock for the latency sample only. Redactions stay on media time.
+    started: std::time::Instant,
+}
+
+struct JudgeHook {
+    sched: Arc<Mutex<JudgeScheduler>>,
+    tx: std::sync::mpsc::Sender<JudgeJob>,
+}
+
+enum LiveJudge {
+    Local(OllamaJudge),
+    Cloud(AnthropicJudge),
+}
+
+impl LiveJudge {
+    fn judge(
+        &self,
+        req: &JudgeRequest<'_>,
+    ) -> Result<Vec<airlock_core::Detection>, airlock_llm::JudgeError> {
+        match self {
+            Self::Local(judge) => judge.judge(req),
+            Self::Cloud(judge) => judge.judge(req),
+        }
+    }
+}
+
+fn spawn_judge(
+    app: AppHandle,
+    slot: Arc<Mutex<Option<Session>>>,
+    generation: Arc<AtomicU64>,
+    mine: u64,
+    platform: Platform,
+    rules: Vec<String>,
+    cloud: bool,
+) -> JudgeHook {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let sched = Arc::new(Mutex::new(JudgeScheduler::default()));
+    let sched_loop = Arc::clone(&sched);
+    std::thread::spawn(move || {
+        judge_loop(
+            JudgeLoop {
+                app,
+                slot,
+                generation,
+                mine,
+                platform,
+                rules,
+                cloud,
+                sched: sched_loop,
+            },
+            rx,
+        );
+    });
+    JudgeHook { sched, tx }
+}
+
+struct JudgeLoop {
+    app: AppHandle,
+    slot: Arc<Mutex<Option<Session>>>,
+    generation: Arc<AtomicU64>,
+    mine: u64,
+    platform: Platform,
+    rules: Vec<String>,
+    cloud: bool,
+    sched: Arc<Mutex<JudgeScheduler>>,
+}
+
+fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
+    let JudgeLoop {
+        app,
+        slot,
+        generation,
+        mine,
+        platform,
+        rules,
+        cloud,
+        sched,
+    } = ctx;
+    let judge = if cloud {
+        match crate::keys::load_cloud_key() {
+            Ok(key) => LiveJudge::Cloud(AnthropicJudge::new(key, true)),
+            Err(_) => LiveJudge::Local(OllamaJudge::default()),
+        }
+    } else {
+        LiveJudge::Local(OllamaJudge::default())
+    };
+    while generation.load(Ordering::SeqCst) == mine {
+        let Ok(job) = rx.recv() else {
+            break;
+        };
+        if generation.load(Ordering::SeqCst) != mine {
+            break;
+        }
+        let req = JudgeRequest {
+            words: &job.window.words,
+            focus_start: job.window.focus_start,
+            platform,
+            delay: job.delay,
+            streamer_rules: &rules,
+        };
+        let result = judge.judge(&req);
+        let elapsed = i64::try_from(job.started.elapsed().as_micros()).unwrap_or(i64::MAX);
+        let fresh = sched
+            .lock()
+            .map(|mut sched| sched.complete(job.generation, elapsed))
+            .unwrap_or(false);
+        let Ok(detections) = result else {
+            continue;
+        };
+        if !fresh {
+            continue;
+        }
+        let Ok(mut guard) = slot.lock() else {
+            continue;
+        };
+        let Some(session) = guard.as_mut() else {
+            continue;
+        };
+        session.on_judge_result(&job.window, detections);
+        for event in session.drain_events() {
+            let _ = app.emit(EVENT_CHANNEL, &event);
+        }
+    }
 }
 
 fn publish_target(platform: Platform) -> Option<String> {

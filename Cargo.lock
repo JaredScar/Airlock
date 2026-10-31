@@ -80,6 +80,7 @@ version = "0.1.0"
 dependencies = [
  "airlock-asr",
  "airlock-core",
+ "airlock-llm",
  "airlock-media",
  "airlock-pipeline",
  "keyring",

@@ -54,6 +54,19 @@ pub fn stream_key_is_saved(key_ref: &str) -> Result<bool, String> {
     }
 }
 
+pub fn load_cloud_key() -> Result<String, String> {
+    let entry =
+        Entry::new(SERVICE, "anthropic").map_err(|_| "could not open the keychain".to_string())?;
+    let key = entry
+        .get_password()
+        .map_err(|_| "could not read the cloud judge key".to_string())?;
+    let key = key.trim().to_string();
+    if key.is_empty() {
+        return Err("cloud judge key is empty".into());
+    }
+    Ok(key)
+}
+
 pub fn store_cloud_key(key: &str) -> Result<(), String> {
     let key = key.trim();
     if key.is_empty() {
