@@ -14,10 +14,12 @@ use airlock_core::{Ts, Word};
 use thiserror::Error;
 
 pub use models::{
-    SpeechModel, download_verified, file_matches, parse_vram_mb, pick_speech_model, verify_sha256,
+    SpeechModel, download_verified, file_matches, parse_vram_mb, pick_speech_model,
+    runtime_speech_model, verify_sha256,
 };
 pub use scripted::ScriptedRecognizer;
 pub use vad::{GatedRecognizer, VadGate};
+pub use whisper::{WhisperConfig, WhisperRecognizer};
 
 pub const ASR_SAMPLE_RATE: u32 = 16_000;
 

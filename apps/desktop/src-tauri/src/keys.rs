@@ -116,4 +116,21 @@ mod tests {
         let err = store_stream_key("airlock/twitch", " ").unwrap_err();
         assert_eq!(err, "stream key is empty");
     }
+
+    #[test]
+    fn a_saved_stream_key_is_readable_from_a_new_entry() {
+        let account = "airlock-test-roundtrip";
+        if let Ok(entry) = Entry::new(SERVICE, account) {
+            let _ = entry.delete_credential();
+        }
+        store_stream_key(account, "round-trip-check").expect("store");
+        let read = load_stream_key(account);
+        if let Ok(entry) = Entry::new(SERVICE, account) {
+            let _ = entry.delete_credential();
+        }
+        assert_eq!(
+            read.expect("a new entry can read the saved key"),
+            "round-trip-check"
+        );
+    }
 }

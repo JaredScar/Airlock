@@ -123,6 +123,16 @@ pub fn download_verified(
     Ok(())
 }
 
+/// Model this build can actually run. A CPU build stays on `small.en` even when
+/// the GPU has room for a larger file, because that file would not keep up.
+pub fn runtime_speech_model(vram_mb: Option<u64>) -> SpeechModel {
+    if cfg!(feature = "cuda") {
+        pick_speech_model(vram_mb)
+    } else {
+        SpeechModel::SmallEn
+    }
+}
+
 /// `vram_mb` is NVIDIA total memory. `None` means no GPU was detected.
 pub fn pick_speech_model(vram_mb: Option<u64>) -> SpeechModel {
     match vram_mb {
@@ -156,6 +166,9 @@ mod tests {
         assert_eq!(pick_speech_model(Some(2_000)), SpeechModel::SmallEn);
         assert_eq!(pick_speech_model(Some(6_000)), SpeechModel::DistilLargeV3);
         assert_eq!(pick_speech_model(Some(12_000)), SpeechModel::LargeV3Turbo);
+        if !cfg!(feature = "cuda") {
+            assert_eq!(runtime_speech_model(Some(32_000)), SpeechModel::SmallEn);
+        }
         assert_eq!(parse_vram_mb("24564 MiB\n"), None);
         assert_eq!(parse_vram_mb("24564\n"), Some(24_564));
         let hash = sha256_hex(b"airlock-model");

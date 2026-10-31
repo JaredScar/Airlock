@@ -134,6 +134,8 @@ pub struct Session {
     /// shrinking it would jump the playhead forward and skip audio.
     extra_delay: Dur,
     last_word_at: Option<Ts>,
+    /// True once Go live has a recognizer loading or running.
+    recognizer_ready: bool,
     stall_latched: bool,
     safe_mode: bool,
     /// Manual mute kept open while safe mode is on.
@@ -160,6 +162,7 @@ impl Session {
             ramp: DelayRamp::new(cfg.policy.delay()),
             extra_delay: Dur::ZERO,
             last_word_at: None,
+            recognizer_ready: false,
             stall_latched: false,
             safe_mode: false,
             safe_mute: None,
@@ -344,6 +347,21 @@ impl Session {
         self.safe_mode
     }
 
+    /// Go live sets this when a speech model is present. The stall banner then says
+    /// it is listening, instead of claiming recognition was never connected.
+    pub fn note_recognizer(&mut self, ready: bool) {
+        self.recognizer_ready = ready;
+        if self.stall_latched && self.last_word_at.is_none() {
+            let fallback = self.cfg.policy.stall_fallback;
+            let message = self.stall_message();
+            self.events.push(UiEvent::AnalysisStall {
+                active: true,
+                fallback,
+                message,
+            });
+        }
+    }
+
     /// Call after `on_live_time` when a chunk of program audio has been measured.
     /// `energetic` should come from `airlock_asr::audio::has_speech_energy`.
     pub fn note_audio_energy(&mut self, energetic: bool) {
@@ -397,6 +415,13 @@ impl Session {
     }
 
     fn stall_message(&self) -> String {
+        if self.last_word_at.is_none() {
+            if self.recognizer_ready {
+                return "Listening. Words show up after a short phrase has been heard twice."
+                    .into();
+            }
+            return "Speech recognition is not connected yet. Download the speech model in Settings, then go live again.".into();
+        }
         match self.cfg.policy.stall_fallback {
             StallFallback::Warn => {
                 "Speech recognition stalled. Audio is still airing unanalyzed.".into()

@@ -6,8 +6,14 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[features]
+default = []
+whisper = ["dep:whisper-rs"]
+cuda = ["whisper", "whisper-rs/cuda"]
+
 [dependencies]
 airlock-core.workspace = true
 sha2 = "0.10"
 thiserror.workspace = true
 ureq = "2.12"
+whisper-rs = { version = "0.15", optional = true }

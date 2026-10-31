@@ -27,7 +27,7 @@ and redacts problems in the *delayed* copy before it leaves the machine.
 |---|---|---|
 | `airlock-core` | `Ts`/`Span` media time, `Detection`, `Policy`, `DelayLine`, `DecisionEngine` | Implemented + tested |
 | `airlock-detect` | Wordlist (leet/elongation aware, token-based), spoken PII regex, private terms, on-screen secret/PII scanner | Implemented + tested |
-| `airlock-asr` | `SpeechRecognizer` trait, audio downmix/resample, silence gate, `ScriptedRecognizer`, Whisper stub | Gate tested; Whisper TODO |
+| `airlock-asr` | `SpeechRecognizer` trait, audio downmix/resample, silence gate, `ScriptedRecognizer`, Whisper | Desktop Go live runs `small.en` on CPU when the model file is present. CUDA is not linked. |
 | `airlock-llm` | `ContextJudge` trait, prompt builder, response parser, deadline budget, Ollama and Anthropic HTTP | Ollama and consented Anthropic clients tested against a local server |
 | `airlock-vision` | `TextRecognizer` trait, `FrameSampler`, downscale, region tracking, Windows OCR (`winocr` feature) | Sampler, downscale, tracking, and Windows OCR tested |
 | `airlock-media` | Audio bleep/mute, delay-then-redact PCM, time-stretch, passthrough video hold, output pacer, FLV tags, AAC via ffmpeg, SRT listen, RTMP listen for one publisher with PTS rebase, RTMPS URL publish with retry, CUDA region pixelate then NVENC (CPU pixelate when CUDA is missing), CPU blackout | File audio, an hour of video timestamps, a local RTMP publish and retry, an RTMP listen and reconnect, an SRT tone, and a GPU-pixelated clip tested; Streamlabs start/stop TODO |

@@ -23,5 +23,5 @@ serde_json.workspace = true
 airlock-core.workspace = true
 airlock-media.workspace = true
 airlock-pipeline.workspace = true
-airlock-asr.workspace = true
-keyring = "3"
+airlock-asr = { workspace = true, features = ["whisper"] }
+keyring = { version = "3", features = ["windows-native"] }

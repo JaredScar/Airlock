@@ -157,8 +157,8 @@ export class SettingsComponent {
   }
 
   streamKeyNote(): string {
-    if (this.studio.streamKeySaved()) return `A ${this.platformName()} key is saved in the OS keychain.`;
-    return `Save the ${this.platformName()} stream key from that platform's dashboard. It is not kept in settings.`;
+    if (this.studio.streamKeySaved()) return `A ${this.platformName()} stream key is saved in the OS keychain.`;
+    return `Paste the ${this.platformName()} stream key from that platform's stream settings. This is not an API client secret.`;
   }
 
   onStreamKey(event: Event) {
@@ -166,9 +166,10 @@ export class SettingsComponent {
     if (input instanceof HTMLInputElement) this.streamKeyDraft.set(input.value);
   }
 
-  saveStreamKey() {
-    void this.studio.saveStreamKey(this.streamKeyDraft());
-    this.streamKeyDraft.set('');
+  async saveStreamKey() {
+    const draft = this.streamKeyDraft();
+    await this.studio.saveStreamKey(draft);
+    if (this.studio.streamKeySaved()) this.streamKeyDraft.set('');
   }
 
   shortcutValue(id: 'veto' | 'approve' | 'dump' | 'safe'): string {

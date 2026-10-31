@@ -4,3 +4,6 @@
 [env]
 TS_RS_EXPORT_DIR = { value = "apps/desktop/src/app/generated", relative = true }
 TS_RS_LARGE_INT = "number"
+# whisper-rs bindgen loads libclang from here. This is the local LLVM unpack on
+# the Windows dev machine. A build without the whisper feature never reads it.
+LIBCLANG_PATH = "C:\\Users\\Axeex\\AppData\\Local\\llvm-18\\clang+llvm-18.1.8-x86_64-pc-windows-msvc\\bin"

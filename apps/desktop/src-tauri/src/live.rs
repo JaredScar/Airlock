@@ -1,10 +1,10 @@
-//! Go live: listen for one local publisher and push its audio through the delay.
-//! Words are not invented here. The word list runs when speech recognition
-//! supplies words. Until then, audio with energy and no words uses the stall rule.
+//! Go live: listen for one local publisher, push its audio through the delay,
+//! and run Whisper on a 16 kHz copy when the speech model is on disk.
 
 use crate::EVENT_CHANNEL;
-use airlock_asr::audio::has_speech_energy;
-use airlock_core::{Dur, Platform};
+use airlock_asr::audio::{downmix_to_mono, has_speech_energy, resample_linear};
+use airlock_asr::{ASR_SAMPLE_RATE, SpeechRecognizer, WhisperConfig, WhisperRecognizer};
+use airlock_core::{Dur, Platform, StallFallback, Ts};
 use airlock_media::{
     AudioHold, DelayedForward, ForwardStep, INGEST_PORT, VideoHold, key_account, platform_name,
     publish_base, secure_publish_url, serve_capture,
@@ -23,6 +23,7 @@ pub fn start(
     mine: u64,
 ) -> Result<(), String> {
     let config = settings.session_config()?;
+    let fallback = config.policy.stall_fallback;
     let delay = config.policy.delay();
     let platform = settings.platform;
     let forward_url = publish_target(platform);
@@ -32,13 +33,40 @@ pub fn start(
         if generation.load(Ordering::SeqCst) != mine {
             return;
         }
+        let model = airlock_asr::runtime_speech_model(crate::detect_vram_mb());
+        let model_path = dir.join("models").join(model.file_name());
+        let model_ready = airlock_asr::file_matches(&model_path, model.sha256());
         {
             let mut guard = match slot.lock() {
                 Ok(guard) => guard,
                 Err(_) => return,
             };
-            *guard = Some(Session::new(config));
+            let mut session = Session::new(config);
+            if model_ready {
+                session.note_recognizer(true);
+            }
+            *guard = Some(session);
         }
+        let speech_tx = if model_ready {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let app_asr = app.clone();
+            let slot_asr = Arc::clone(&slot);
+            let generation_asr = Arc::clone(&generation);
+            std::thread::spawn(move || {
+                recognize(app_asr, slot_asr, generation_asr, mine, model_path, rx);
+            });
+            Some(tx)
+        } else {
+            let _ = app.emit(
+                EVENT_CHANNEL,
+                &UiEvent::AnalysisStall {
+                    active: true,
+                    fallback,
+                    message: "Speech recognition is not connected yet. Download the speech model in Settings, then go live again.".into(),
+                },
+            );
+            None
+        };
         let forwarding = forward_url.is_some();
         let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected: false });
         let _ = app.emit(
@@ -71,6 +99,7 @@ pub fn start(
             stop_flag.store(true, Ordering::SeqCst);
         });
         let app_pcm = app.clone();
+        let speech_out = speech_tx.clone();
         let slot_pcm = slot.clone();
         let media_pcm = Arc::clone(&media);
         let delayed_pcm = Arc::clone(&delayed);
@@ -93,6 +122,11 @@ pub fn start(
             move |pcm| {
                 if generation.load(Ordering::SeqCst) != mine {
                     return;
+                }
+                if let Some(tx) = &speech_out {
+                    let mono = downmix_to_mono(&pcm.samples, pcm.channels.max(1));
+                    let speech = resample_linear(&mono, pcm.sample_rate, ASR_SAMPLE_RATE);
+                    let _ = tx.send((pcm.start, speech));
                 }
                 let end = pcm.start
                     + Dur::from_secs_f64(pcm.frames() as f64 / pcm.sample_rate.max(1) as f64);
@@ -142,6 +176,7 @@ pub fn start(
                 }
             },
         );
+        drop(speech_tx);
         let delayed = delayed
             .lock()
             .map(|samples| samples.clone())
@@ -166,6 +201,82 @@ struct LiveMedia {
     audio: AudioHold,
     video: VideoHold,
     forward: DelayedForward,
+}
+
+fn recognize(
+    app: AppHandle,
+    slot: Arc<Mutex<Option<Session>>>,
+    generation: Arc<AtomicU64>,
+    mine: u64,
+    model_path: std::path::PathBuf,
+    rx: std::sync::mpsc::Receiver<(Ts, Vec<f32>)>,
+) {
+    // This build has no CUDA toolkit, so the model runs on CPU.
+    let config = WhisperConfig {
+        model_path,
+        use_gpu: false,
+        ..WhisperConfig::default()
+    };
+    let mut recognizer = match WhisperRecognizer::new(config) {
+        Ok(recognizer) => recognizer,
+        Err(err) => {
+            report_recognizer_failure(&app, &slot, &err.to_string());
+            return;
+        }
+    };
+    while generation.load(Ordering::SeqCst) == mine {
+        let Ok((start, samples)) = rx.recv() else {
+            break;
+        };
+        if generation.load(Ordering::SeqCst) != mine {
+            break;
+        }
+        match recognizer.push(&samples, start) {
+            Ok(words) => deliver_words(&app, &slot, words),
+            Err(err) => {
+                report_recognizer_failure(&app, &slot, &err.to_string());
+                return;
+            }
+        }
+    }
+    if let Ok(words) = recognizer.flush() {
+        deliver_words(&app, &slot, words);
+    }
+}
+
+fn deliver_words(app: &AppHandle, slot: &Mutex<Option<Session>>, words: Vec<airlock_core::Word>) {
+    if words.is_empty() {
+        return;
+    }
+    let Ok(mut guard) = slot.lock() else {
+        return;
+    };
+    let Some(session) = guard.as_mut() else {
+        return;
+    };
+    session.on_words(words);
+    for event in session.drain_events() {
+        let _ = app.emit(EVENT_CHANNEL, &event);
+    }
+}
+
+fn report_recognizer_failure(app: &AppHandle, slot: &Mutex<Option<Session>>, detail: &str) {
+    if let Ok(mut guard) = slot.lock()
+        && let Some(session) = guard.as_mut()
+    {
+        session.note_recognizer(false);
+        for event in session.drain_events() {
+            let _ = app.emit(EVENT_CHANNEL, &event);
+        }
+    }
+    let _ = app.emit(
+        EVENT_CHANNEL,
+        &UiEvent::AnalysisStall {
+            active: true,
+            fallback: StallFallback::Warn,
+            message: format!("Speech recognition could not run. {detail}"),
+        },
+    );
 }
 
 fn publish_target(platform: Platform) -> Option<String> {

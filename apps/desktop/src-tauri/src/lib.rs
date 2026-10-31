@@ -276,7 +276,7 @@ struct ModelProgress {
     total: Option<u64>,
 }
 
-fn detect_vram_mb() -> Option<u64> {
+pub(crate) fn detect_vram_mb() -> Option<u64> {
     let output = std::process::Command::new("nvidia-smi")
         .args(["--query-gpu=memory.total", "--format=csv,noheader,nounits"])
         .output()
@@ -291,7 +291,7 @@ fn detect_vram_mb() -> Option<u64> {
 /// The file is kept only after its checksum matches. Progress events are `model-progress`.
 #[tauri::command]
 fn download_speech_model(app: AppHandle) -> Result<String, String> {
-    let model = airlock_asr::pick_speech_model(detect_vram_mb());
+    let model = airlock_asr::runtime_speech_model(detect_vram_mb());
     let dir = app
         .path()
         .app_data_dir()

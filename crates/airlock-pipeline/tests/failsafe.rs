@@ -68,10 +68,21 @@ fn stall_warn_banners_without_muting() {
         UiEvent::AnalysisStall {
             active: true,
             fallback: StallFallback::Warn,
-            ..
-        }
+            message,
+        } if message.contains("not connected")
     )));
     assert_eq!(s.engine().all().len(), 0);
+}
+
+#[test]
+fn a_connected_recognizer_says_it_is_listening() {
+    let mut s = session(StallFallback::Warn, 1_000);
+    s.note_recognizer(true);
+    advance(&mut s, 0, 1_500, true);
+    assert!(s.drain_events().iter().any(|e| matches!(
+        e,
+        UiEvent::AnalysisStall { active: true, message, .. } if message.contains("Listening")
+    )));
 }
 
 #[test]
@@ -102,8 +113,13 @@ fn stall_mute_covers_audio_after_the_last_word() {
         Span::from_millis(3_400, 3_500),
         0.9,
     )]);
+    let events = s.drain_events();
+    assert!(events.iter().any(|e| matches!(
+        e,
+        UiEvent::AnalysisStall { active: true, message, .. } if message.contains("stalled")
+    )));
     assert!(
-        s.drain_events()
+        events
             .iter()
             .any(|e| matches!(e, UiEvent::AnalysisStall { active: false, .. }))
     );

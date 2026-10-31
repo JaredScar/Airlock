@@ -76,8 +76,12 @@ export class StudioService {
     }
     try {
       await invoke('set_stream_key', { platform: this.settings().platform, key });
-      this.streamKeySaved.set(true);
-      this.error.set(null);
+      await this.refreshStreamKey();
+      if (this.streamKeySaved()) {
+        this.error.set(null);
+      } else {
+        this.error.set('The stream key did not stay in the keychain. Save it again.');
+      }
     } catch (e) {
       this.error.set(String(e));
     }
