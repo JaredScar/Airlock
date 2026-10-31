@@ -27,6 +27,9 @@ pub struct StudioSettings {
     /// The streamer opted in to sending transcript text to a cloud judge.
     #[serde(default)]
     pub cloud_judge_consent: bool,
+    /// The streamer opted in to sending audio to Deepgram for speech recognition.
+    #[serde(default)]
+    pub cloud_stt_consent: bool,
     #[serde(default = "shortcut_veto")]
     pub shortcut_veto: String,
     #[serde(default = "shortcut_approve")]
@@ -69,6 +72,7 @@ impl Default for StudioSettings {
             extra_profanity: String::new(),
             extra_allow: String::new(),
             cloud_judge_consent: false,
+            cloud_stt_consent: false,
             shortcut_veto: shortcut_veto(),
             shortcut_approve: shortcut_approve(),
             shortcut_dump: shortcut_dump(),

@@ -13,7 +13,10 @@ cuda = ["whisper", "whisper-rs/cuda"]
 
 [dependencies]
 airlock-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha2 = "0.10"
 thiserror.workspace = true
 ureq = "2.12"
+tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 whisper-rs = { version = "0.15", optional = true }

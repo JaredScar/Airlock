@@ -185,6 +185,7 @@
       <ul class="data-statement">
         <li>Word lists, spoken checks, and on-screen text recognition stay on this PC.</li>
         <li>Private terms stay on this PC. The desktop app seals them and keeps the key in the OS keychain. This preview has no keychain, so terms stay in this browser's profile.</li>
+        <li>Speech recognition stays on this PC unless "Audio may be sent to Deepgram for speech recognition" is checked, a Pro license is saved, and a Deepgram key is in the OS keychain.</li>
         <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
         <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
         <li>A stream key stays in the OS keychain. It is not written into settings or logs. When one is saved, Go live sends the held picture and sound to that platform.</li>
@@ -209,13 +210,21 @@
         </div>
       }
       <button type="button" (click)="downloadModel()">Download model</button>
+      <label class="stall">
+        <span><input type="checkbox" [checked]="studio.settings().cloud_stt_consent" (change)="onCloudStt($event)" /> Audio may be sent to Deepgram for speech recognition</span>
+      </label>
+      <form class="add" (submit)="$event.preventDefault(); saveSpeechKey()">
+        <input type="password" autocomplete="off" [value]="speechKeyDraft()" (input)="onSpeechKey($event)" placeholder="Deepgram key" aria-label="Deepgram key" />
+        <button type="submit">Save speech key</button>
+      </form>
+      <p class="hint">Off by default. A Pro license is required. The key stays in the OS keychain. With this off, speech stays on this PC.</p>
     </div>
   </section>
 
   <section class="panel">
     <header class="panel-head">
       <h2>License</h2>
-      <p class="hint">Word lists, the dump button, and spoken personal info stay on without a key. The context judge, on-screen scanning, and the cloud judge are the Pro checks. The key is verified on this PC.</p>
+      <p class="hint">Word lists, the dump button, and spoken personal info stay on without a key. The context judge, on-screen scanning, cloud speech, and the cloud judge are the Pro checks. The key is verified on this PC.</p>
     </header>
     <div class="scroll settings-body">
       <form class="add" (submit)="$event.preventDefault()">

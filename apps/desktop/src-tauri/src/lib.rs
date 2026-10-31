@@ -70,6 +70,11 @@ fn set_cloud_key(key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn set_speech_key(key: String) -> Result<(), String> {
+    keys::store_speech_key(&key)
+}
+
+#[tauri::command]
 fn set_stream_key(platform: String, key: String) -> Result<(), String> {
     let platform = parse_platform(&platform)?;
     if platform == Platform::Generic {
@@ -331,6 +336,7 @@ pub fn run() {
             get_studio_settings,
             set_studio_settings,
             set_cloud_key,
+            set_speech_key,
             set_stream_key,
             has_stream_key,
             set_safe_mode,

@@ -54,6 +54,31 @@ pub fn stream_key_is_saved(key_ref: &str) -> Result<bool, String> {
     }
 }
 
+pub fn store_speech_key(key: &str) -> Result<(), String> {
+    let key = key.trim();
+    if key.is_empty() {
+        return Err("speech key is empty".into());
+    }
+    let entry =
+        Entry::new(SERVICE, "deepgram").map_err(|_| "could not open the keychain".to_string())?;
+    entry
+        .set_password(key)
+        .map_err(|_| "could not store the speech key".to_string())
+}
+
+pub fn load_speech_key() -> Result<String, String> {
+    let entry =
+        Entry::new(SERVICE, "deepgram").map_err(|_| "could not open the keychain".to_string())?;
+    let key = entry
+        .get_password()
+        .map_err(|_| "could not read the speech key".to_string())?;
+    let key = key.trim().to_string();
+    if key.is_empty() {
+        return Err("speech key is empty".into());
+    }
+    Ok(key)
+}
+
 pub fn load_cloud_key() -> Result<String, String> {
     let entry =
         Entry::new(SERVICE, "anthropic").map_err(|_| "could not open the keychain".to_string())?;

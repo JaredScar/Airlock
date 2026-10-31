@@ -5,6 +5,7 @@
 //! twice; partial/unstable hypotheses stay internal.
 
 pub mod audio;
+pub mod deepgram;
 pub mod models;
 pub mod scripted;
 pub mod vad;
@@ -13,6 +14,7 @@ pub mod whisper;
 use airlock_core::{Ts, Word};
 use thiserror::Error;
 
+pub use deepgram::{DeepgramConfig, DeepgramRecognizer};
 pub use models::{
     SpeechModel, download_verified, file_matches, parse_vram_mb, pick_speech_model,
     runtime_speech_model, verify_sha256,

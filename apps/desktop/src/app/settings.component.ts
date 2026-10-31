@@ -30,6 +30,7 @@ export class SettingsComponent {
   readonly ruleDraft = signal('');
   readonly termDraft = signal('');
   readonly keyDraft = signal('');
+  readonly speechKeyDraft = signal('');
   readonly streamKeyDraft = signal('');
   readonly shortcuts = [
     { id: 'veto' as const, label: 'Veto next' },
@@ -144,6 +145,21 @@ export class SettingsComponent {
   onConsent(event: Event) {
     const input = event.target;
     if (input instanceof HTMLInputElement) this.studio.setConsent(input.checked);
+  }
+
+  onCloudStt(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setCloudStt(input.checked);
+  }
+
+  onSpeechKey(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.speechKeyDraft.set(input.value);
+  }
+
+  saveSpeechKey() {
+    void this.studio.saveSpeechKey(this.speechKeyDraft());
+    this.speechKeyDraft.set('');
   }
 
   onKey(event: Event) {

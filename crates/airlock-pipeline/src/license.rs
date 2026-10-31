@@ -19,6 +19,8 @@ pub enum Feature {
     ContextJudge,
     ScreenScan,
     CloudJudge,
+    /// Cloud speech recognition. Pro, and only after explicit consent.
+    CloudSpeech,
 }
 
 /// Signs a development Pro license. The key ships with the repo until pricing exists.
@@ -30,7 +32,10 @@ pub fn issue_dev_license() -> String {
 pub fn allows(license: &str, feature: Feature) -> bool {
     match feature {
         Feature::Wordlist | Feature::Dump | Feature::SpokenPii => true,
-        Feature::ContextJudge | Feature::ScreenScan | Feature::CloudJudge => is_pro(license),
+        Feature::ContextJudge
+        | Feature::ScreenScan
+        | Feature::CloudJudge
+        | Feature::CloudSpeech => is_pro(license),
     }
 }
 
@@ -61,6 +66,8 @@ mod tests {
         let key = issue_dev_license();
         assert!(allows(&key, Feature::ContextJudge));
         assert!(allows(&key, Feature::CloudJudge));
+        assert!(!allows("", Feature::CloudSpeech));
+        assert!(allows(&key, Feature::CloudSpeech));
         assert!(!key.contains("Springfield"));
     }
 }

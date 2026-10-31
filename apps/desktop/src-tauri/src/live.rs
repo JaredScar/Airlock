@@ -1,10 +1,15 @@
 //! Go live: listen for one local publisher, push its audio through the delay,
-//! run Whisper on a 16 kHz copy when the speech model is on disk, and ask the
-//! context judge when a Pro license is saved.
+//! recognize speech on a 16 kHz copy, and ask the context judge when a Pro
+//! license is saved. Cloud speech is used only when the streamer opted in, a
+//! Pro license allows it, and a Deepgram key is in the keychain. Otherwise
+//! Whisper runs when the local model file is on disk.
 
 use crate::EVENT_CHANNEL;
 use airlock_asr::audio::{downmix_to_mono, has_speech_energy, resample_linear};
-use airlock_asr::{ASR_SAMPLE_RATE, SpeechRecognizer, WhisperConfig, WhisperRecognizer};
+use airlock_asr::{
+    ASR_SAMPLE_RATE, DeepgramConfig, DeepgramRecognizer, SpeechRecognizer, WhisperConfig,
+    WhisperRecognizer,
+};
 use airlock_core::{Dur, Platform, StallFallback, Ts};
 use airlock_llm::{AnthropicJudge, ContextJudge, JudgeRequest, OllamaJudge};
 use airlock_media::{
@@ -30,6 +35,12 @@ pub fn start(
     let platform = settings.platform;
     let judge_on = allows(&settings.license_key, Feature::ContextJudge);
     let cloud = settings.cloud_judge_consent && allows(&settings.license_key, Feature::CloudJudge);
+    let speech_key =
+        if settings.cloud_stt_consent && allows(&settings.license_key, Feature::CloudSpeech) {
+            crate::keys::load_speech_key().ok()
+        } else {
+            None
+        };
     let rules = settings.active_rules().to_vec();
     let forward_url = publish_target(platform);
     let dir = app.path().app_data_dir().map_err(|err| err.to_string())?;
@@ -40,7 +51,8 @@ pub fn start(
         }
         let model = airlock_asr::runtime_speech_model(crate::detect_vram_mb());
         let model_path = dir.join("models").join(model.file_name());
-        let model_ready = airlock_asr::file_matches(&model_path, model.sha256());
+        let model_ready =
+            speech_key.is_some() || airlock_asr::file_matches(&model_path, model.sha256());
         {
             let mut guard = match slot.lock() {
                 Ok(guard) => guard,
@@ -68,16 +80,12 @@ pub fn start(
                     cloud,
                 )
             });
+            let engine = match speech_key {
+                Some(key) => SpeechEngine::Cloud(key),
+                None => SpeechEngine::Local(model_path),
+            };
             std::thread::spawn(move || {
-                recognize(
-                    app_asr,
-                    slot_asr,
-                    generation_asr,
-                    mine,
-                    model_path,
-                    judge,
-                    rx,
-                );
+                recognize(app_asr, slot_asr, generation_asr, mine, engine, judge, rx);
             });
             Some(tx)
         } else {
@@ -227,26 +235,45 @@ struct LiveMedia {
     forward: DelayedForward,
 }
 
+enum SpeechEngine {
+    Local(std::path::PathBuf),
+    Cloud(String),
+}
+
 fn recognize(
     app: AppHandle,
     slot: Arc<Mutex<Option<Session>>>,
     generation: Arc<AtomicU64>,
     mine: u64,
-    model_path: std::path::PathBuf,
+    engine: SpeechEngine,
     judge: Option<JudgeHook>,
     rx: std::sync::mpsc::Receiver<(Ts, Vec<f32>)>,
 ) {
-    // This build has no CUDA toolkit, so the model runs on CPU.
-    let config = WhisperConfig {
-        model_path,
-        use_gpu: false,
-        ..WhisperConfig::default()
-    };
-    let mut recognizer = match WhisperRecognizer::new(config) {
-        Ok(recognizer) => recognizer,
-        Err(err) => {
-            report_recognizer_failure(&app, &slot, &err.to_string());
-            return;
+    let mut recognizer: Box<dyn SpeechRecognizer> = match engine {
+        SpeechEngine::Cloud(api_key) => match DeepgramRecognizer::new(DeepgramConfig {
+            api_key,
+            ..DeepgramConfig::default()
+        }) {
+            Ok(recognizer) => Box::new(recognizer),
+            Err(err) => {
+                report_recognizer_failure(&app, &slot, &err.to_string());
+                return;
+            }
+        },
+        SpeechEngine::Local(model_path) => {
+            // This build has no CUDA toolkit, so the model runs on CPU.
+            let config = WhisperConfig {
+                model_path,
+                use_gpu: false,
+                ..WhisperConfig::default()
+            };
+            match WhisperRecognizer::new(config) {
+                Ok(recognizer) => Box::new(recognizer),
+                Err(err) => {
+                    report_recognizer_failure(&app, &slot, &err.to_string());
+                    return;
+                }
+            }
         }
     };
     while generation.load(Ordering::SeqCst) == mine {

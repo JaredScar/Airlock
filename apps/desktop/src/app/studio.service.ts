@@ -15,6 +15,7 @@ export const DEFAULT_STUDIO: StudioSettings = {
   extra_profanity: '',
   extra_allow: '',
   cloud_judge_consent: false,
+  cloud_stt_consent: false,
   shortcut_veto: 'F8',
   shortcut_approve: 'F9',
   shortcut_dump: 'F10',
@@ -156,6 +157,10 @@ export class StudioService {
     this.commit({ ...this.settings(), cloud_judge_consent });
   }
 
+  setCloudStt(cloud_stt_consent: boolean) {
+    this.commit({ ...this.settings(), cloud_stt_consent });
+  }
+
   setLicense(license_key: string) {
     this.commit({ ...this.settings(), license_key: license_key.trim() });
   }
@@ -167,6 +172,19 @@ export class StudioService {
   setShortcut(which: 'veto' | 'approve' | 'dump' | 'safe', value: string) {
     const shortcut = value.trim() || DEFAULT_STUDIO[`shortcut_${which}`];
     this.commit({ ...this.settings(), [`shortcut_${which}`]: shortcut });
+  }
+
+  async saveSpeechKey(key: string) {
+    if (!inDesktopShell()) {
+      this.error.set('The preview cannot store a speech key. Open the desktop app.');
+      return;
+    }
+    try {
+      await invoke('set_speech_key', { key });
+      this.error.set(null);
+    } catch (e) {
+      this.error.set(String(e));
+    }
   }
 
   async saveCloudKey(key: string) {
@@ -287,6 +305,7 @@ function loadStudio(): StudioSettings {
       rules_kick: parsed.rules_kick ?? base.rules_kick,
       private_terms: parsed.private_terms ?? base.private_terms,
       cloud_judge_consent: parsed.cloud_judge_consent ?? false,
+      cloud_stt_consent: parsed.cloud_stt_consent ?? false,
       shortcut_veto: parsed.shortcut_veto || base.shortcut_veto,
       shortcut_approve: parsed.shortcut_approve || base.shortcut_approve,
       shortcut_dump: parsed.shortcut_dump || base.shortcut_dump,
