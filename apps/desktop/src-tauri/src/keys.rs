@@ -23,7 +23,6 @@ pub fn load_terms(app: &AppHandle) -> Result<Option<Vec<String>>, String> {
         .map_err(|e| e.to_string())
 }
 
-#[allow(dead_code)] // egress calls this once a platform session exists (PLAN 1.6)
 pub fn store_stream_key(key_ref: &str, key: &str) -> Result<(), String> {
     let key = key.trim();
     if key_ref.trim().is_empty() || key.is_empty() {
@@ -36,13 +35,23 @@ pub fn store_stream_key(key_ref: &str, key: &str) -> Result<(), String> {
         .map_err(|_| "could not store the stream key".to_string())
 }
 
-#[allow(dead_code)] // egress calls this once a platform session exists (PLAN 1.6)
 pub fn load_stream_key(key_ref: &str) -> Result<String, String> {
     let entry =
         Entry::new(SERVICE, key_ref).map_err(|_| "could not open the keychain".to_string())?;
     entry
         .get_password()
         .map_err(|_| "could not read the stream key".to_string())
+}
+
+/// True when a key is stored. A missing entry is not an error, and the key is not returned.
+pub fn stream_key_is_saved(key_ref: &str) -> Result<bool, String> {
+    let entry =
+        Entry::new(SERVICE, key_ref).map_err(|_| "could not open the keychain".to_string())?;
+    match entry.get_password() {
+        Ok(key) => Ok(!key.trim().is_empty()),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(_) => Err("could not read the stream key".into()),
+    }
 }
 
 pub fn store_cloud_key(key: &str) -> Result<(), String> {

@@ -33,6 +33,7 @@ export class AirlockService {
   readonly aired = signal<Redaction[]>([]);
   readonly running = signal(false);
   readonly ingest = signal<boolean | null>(null);
+  readonly egress = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly stall = signal<string | null>(null);
 
@@ -218,6 +219,7 @@ export class AirlockService {
     this.error.set(null);
     this.stall.set(null);
     this.ingest.set(null);
+    this.egress.set(null);
   }
 
   private apply(ev: UiEvent) {
@@ -245,6 +247,9 @@ export class AirlockService {
         break;
       case 'ingest':
         this.ingest.set(ev.connected);
+        break;
+      case 'egress':
+        this.egress.set(ev.detail);
         break;
       default: {
         const unexpected: never = ev;

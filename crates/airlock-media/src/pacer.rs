@@ -51,6 +51,14 @@ impl<W: Write> FlvMux<W> {
         }
     }
 
+    /// Continues an FLV that already has its file header.
+    pub fn resume(writer: W) -> Self {
+        FlvMux {
+            writer,
+            started: true,
+        }
+    }
+
     pub fn audio_tag(&mut self, pts: Ts, payload: &[u8]) -> io::Result<()> {
         self.tag(8, pts, payload)
     }

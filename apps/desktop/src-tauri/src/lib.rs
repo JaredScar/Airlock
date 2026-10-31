@@ -8,7 +8,8 @@ mod demo;
 mod keys;
 mod live;
 
-use airlock_core::RedactionId;
+use airlock_core::{Platform, RedactionId};
+use airlock_media::key_account;
 use airlock_pipeline::{Session, StudioSettings, UiEvent, incident};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -66,6 +67,34 @@ fn set_studio_settings(
 #[tauri::command]
 fn set_cloud_key(key: String) -> Result<(), String> {
     keys::store_cloud_key(&key)
+}
+
+#[tauri::command]
+fn set_stream_key(platform: String, key: String) -> Result<(), String> {
+    let platform = parse_platform(&platform)?;
+    if platform == Platform::Generic {
+        return Err("choose Twitch, YouTube, or Kick".into());
+    }
+    keys::store_stream_key(key_account(platform), &key)
+}
+
+#[tauri::command]
+fn has_stream_key(platform: String) -> Result<bool, String> {
+    let platform = parse_platform(&platform)?;
+    if platform == Platform::Generic {
+        return Ok(false);
+    }
+    keys::stream_key_is_saved(key_account(platform))
+}
+
+fn parse_platform(name: &str) -> Result<Platform, String> {
+    match name {
+        "twitch" => Ok(Platform::Twitch),
+        "youtube" => Ok(Platform::Youtube),
+        "kick" => Ok(Platform::Kick),
+        "generic" => Ok(Platform::Generic),
+        _ => Err("unknown platform".into()),
+    }
 }
 
 #[tauri::command]
@@ -302,6 +331,8 @@ pub fn run() {
             get_studio_settings,
             set_studio_settings,
             set_cloud_key,
+            set_stream_key,
+            has_stream_key,
             set_safe_mode,
             set_compact,
             start_demo,

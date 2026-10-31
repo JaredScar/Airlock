@@ -134,6 +134,7 @@ button.dump:hover:not(:disabled) { background: #ff6264; }
 button.dump:disabled { background: #222831; border-color: var(--line); color: #6d7886; box-shadow: none; }
 button.demo { padding: 10px 12px; color: var(--muted); }
 
+p.egress { margin: 8px 16px 0; color: var(--muted); font-size: 13px; }
 .health {
   display: flex;
   flex-wrap: wrap;

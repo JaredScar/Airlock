@@ -140,6 +140,7 @@ impl TimedEventView {
             UiEvent::Clock { .. } => "clock",
             UiEvent::AnalysisStall { .. } => "analysis_stall",
             UiEvent::Ingest { .. } => "ingest",
+            UiEvent::Egress { .. } => "egress",
         }
     }
 }

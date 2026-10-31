@@ -2,16 +2,21 @@
 //! stream. When that publisher hangs up, the caller listens again, so the
 //! process does not have to restart. PTS values are rebased onto `Ts`.
 
-use std::io::Read;
+use std::io::{ErrorKind, Read};
+use std::net::TcpListener;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
 
 use airlock_core::Ts;
 
 use crate::audio_path::{MediaError, Pcm, STUDIO_CHANNELS, STUDIO_RATE_HZ};
+use crate::forward::drain_video_tags;
+use crate::video_hold::VideoPacket;
 
 /// Local listen port from the setup guide.
 pub const INGEST_PORT: u16 = 1935;
@@ -56,6 +61,11 @@ impl PtsClock {
             self.carry = self.last.saturating_add(1);
             self.origin = None;
         }
+    }
+
+    /// Media time where the next connection begins.
+    pub fn carry(&self) -> i64 {
+        self.carry
     }
 }
 
@@ -145,6 +155,7 @@ pub fn serve_capture(
     directory: &Path,
     stop: &AtomicBool,
     mut on_connection: impl FnMut(bool),
+    mut on_video: impl FnMut(VideoPacket),
     mut on_pcm: impl FnMut(Pcm),
 ) -> Result<(), MediaError> {
     std::fs::create_dir_all(directory).map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
@@ -158,6 +169,7 @@ pub fn serve_capture(
             stop,
             &mut clock,
             &mut on_connection,
+            &mut on_video,
             &mut on_pcm,
         ) {
             Ok(()) => n = n.saturating_add(1),
@@ -175,9 +187,22 @@ fn capture_one(
     stop: &AtomicBool,
     clock: &mut PtsClock,
     on_connection: &mut impl FnMut(bool),
+    on_video: &mut impl FnMut(VideoPacket),
     on_pcm: &mut impl FnMut(Pcm),
 ) -> Result<(), MediaError> {
     let url = ingest_url(port);
+    let listener =
+        TcpListener::bind("127.0.0.1:0").map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+    let video_port = listener
+        .local_addr()
+        .map_err(|err| MediaError::Ffmpeg(err.to_string()))?
+        .port();
+    let video_url = format!("tcp://127.0.0.1:{video_port}");
+    let origin_us = clock.carry();
+    let (video_tx, video_rx) = mpsc::channel();
     let mut child = Command::new("ffmpeg")
         .args([
             "-y",
@@ -204,6 +229,17 @@ fn capture_one(
             "0",
             "-c",
             "copy",
+            "-flush_packets",
+            "1",
+            "-f",
+            "flv",
+            &video_url,
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "-avoid_negative_ts",
+            "make_zero",
         ])
         .arg(flv)
         .stdin(Stdio::null())
@@ -230,7 +266,22 @@ fn capture_one(
             }
             let _ = child.wait();
         });
-        read_pcm(&mut stdout, stop, clock, on_connection, on_pcm)
+        let video_done = Arc::new(AtomicBool::new(false));
+        let video_stop = Arc::clone(&video_done);
+        scope.spawn(move || {
+            read_video_stream(listener, origin_us, video_tx, stop, &video_stop);
+        });
+        let read = read_pcm(
+            &mut stdout,
+            stop,
+            clock,
+            &video_rx,
+            on_connection,
+            on_video,
+            on_pcm,
+        );
+        video_done.store(true, Ordering::SeqCst);
+        read
     })?;
     if file_len(flv) > 100 {
         clock.disconnected();
@@ -242,11 +293,62 @@ fn capture_one(
     }
 }
 
+fn read_video_stream(
+    listener: TcpListener,
+    origin_us: i64,
+    tx: mpsc::Sender<VideoPacket>,
+    stop: &AtomicBool,
+    done: &AtomicBool,
+) {
+    let mut stream = None;
+    while stream.is_none() && !stop.load(Ordering::SeqCst) && !done.load(Ordering::SeqCst) {
+        match listener.accept() {
+            Ok((sock, _)) => stream = Some(sock),
+            Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(20))
+            }
+            Err(_) => return,
+        }
+    }
+    let Some(mut stream) = stream else {
+        return;
+    };
+    let _ = stream.set_nonblocking(false);
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
+    let mut buf = Vec::new();
+    let mut tmp = [0u8; 8192];
+    let mut packets = Vec::new();
+    while !stop.load(Ordering::SeqCst) {
+        match stream.read(&mut tmp) {
+            Ok(0) => break,
+            Ok(n) => {
+                buf.extend_from_slice(&tmp[..n]);
+                drain_video_tags(&mut buf, origin_us, &mut packets);
+                for packet in packets.drain(..) {
+                    if tx.send(packet).is_err() {
+                        return;
+                    }
+                }
+            }
+            Err(err)
+                if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut =>
+            {
+                if done.load(Ordering::SeqCst) {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+}
+
 fn read_pcm(
     stdout: &mut impl Read,
     stop: &AtomicBool,
     clock: &mut PtsClock,
+    video_rx: &Receiver<VideoPacket>,
     on_connection: &mut impl FnMut(bool),
+    on_video: &mut impl FnMut(VideoPacket),
     on_pcm: &mut impl FnMut(Pcm),
 ) -> Result<(), MediaError> {
     let chunk_bytes = 960 * STUDIO_CHANNELS * 4;
@@ -264,6 +366,9 @@ fn read_pcm(
         if n == 0 {
             break;
         }
+        while let Ok(packet) = video_rx.try_recv() {
+            on_video(packet);
+        }
         if !connected {
             connected = true;
             on_connection(true);
@@ -277,6 +382,9 @@ fn read_pcm(
     let tail = pending.len() - pending.len() % (STUDIO_CHANNELS * 4);
     if tail >= STUDIO_CHANNELS * 4 {
         emit_pcm(&pending[..tail], &mut frames, clock, on_pcm);
+    }
+    while let Ok(packet) = video_rx.try_recv() {
+        on_video(packet);
     }
     if connected {
         on_connection(false);
@@ -474,6 +582,7 @@ mod tests {
                 &dir_thread,
                 &stop_thread,
                 |up| states_thread.lock().unwrap().push(up),
+                |_| {},
                 |pcm| {
                     assert_eq!(pcm.sample_rate, 48_000);
                     assert_eq!(pcm.channels, 2);

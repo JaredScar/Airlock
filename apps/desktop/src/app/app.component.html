@@ -103,6 +103,9 @@
   <span>On-screen text <b title="No samples yet">—</b></span>
   <span>GPU <b title="Shown when a broadcast is connected">—</b></span>
 </section>
+@if (al.egress(); as note) {
+  <p class="egress">{{ note }}</p>
+}
 
 <main class="grid">
   <section class="panel queue" aria-label="Redactions still in the delay">

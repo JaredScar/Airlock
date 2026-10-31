@@ -46,6 +46,7 @@ export class StudioService {
   readonly error = signal<string | null>(null);
   readonly modelProgress = signal<number | null>(null);
   readonly modelNote = signal('The file is kept only after its checksum matches.');
+  readonly streamKeySaved = signal(false);
 
   constructor() {
     if (inDesktopShell()) void this.pullFromDesktop();
@@ -65,6 +66,33 @@ export class StudioService {
 
   choosePlatform(platform: StudioSettings['platform']) {
     this.commit({ ...this.settings(), platform });
+    void this.refreshStreamKey();
+  }
+
+  async saveStreamKey(key: string) {
+    if (!inDesktopShell()) {
+      this.error.set('Open the Airlock app to save a stream key.');
+      return;
+    }
+    try {
+      await invoke('set_stream_key', { platform: this.settings().platform, key });
+      this.streamKeySaved.set(true);
+      this.error.set(null);
+    } catch (e) {
+      this.error.set(String(e));
+    }
+  }
+
+  async refreshStreamKey() {
+    if (!inDesktopShell()) {
+      this.streamKeySaved.set(false);
+      return;
+    }
+    try {
+      this.streamKeySaved.set(await invoke<boolean>('has_stream_key', { platform: this.settings().platform }));
+    } catch {
+      this.streamKeySaved.set(false);
+    }
   }
 
   addRule(text: string) {
@@ -204,6 +232,7 @@ export class StudioService {
         },
       });
       this.error.set(null);
+      void this.refreshStreamKey();
     } catch (e) {
       this.error.set(String(e));
     }

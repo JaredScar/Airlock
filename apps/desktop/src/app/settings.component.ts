@@ -30,6 +30,7 @@ export class SettingsComponent {
   readonly ruleDraft = signal('');
   readonly termDraft = signal('');
   readonly keyDraft = signal('');
+  readonly streamKeyDraft = signal('');
   readonly shortcuts = [
     { id: 'veto' as const, label: 'Veto next' },
     { id: 'approve' as const, label: 'Approve next' },
@@ -153,6 +154,21 @@ export class SettingsComponent {
   saveKey() {
     void this.studio.saveCloudKey(this.keyDraft());
     this.keyDraft.set('');
+  }
+
+  streamKeyNote(): string {
+    if (this.studio.streamKeySaved()) return `A ${this.platformName()} key is saved in the OS keychain.`;
+    return `Save the ${this.platformName()} stream key from that platform's dashboard. It is not kept in settings.`;
+  }
+
+  onStreamKey(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.streamKeyDraft.set(input.value);
+  }
+
+  saveStreamKey() {
+    void this.studio.saveStreamKey(this.streamKeyDraft());
+    this.streamKeyDraft.set('');
   }
 
   shortcutValue(id: 'veto' | 'approve' | 'dump' | 'safe'): string {

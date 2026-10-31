@@ -17,6 +17,11 @@
         }
       </div>
       <p class="pack">{{ studio.pack() }}</p>
+      <form class="add" (submit)="$event.preventDefault(); saveStreamKey()">
+        <input type="password" autocomplete="off" [value]="streamKeyDraft()" (input)="onStreamKey($event)" [attr.placeholder]="platformName() + ' stream key'" [attr.aria-label]="platformName() + ' stream key'" />
+        <button type="submit">Save stream key</button>
+      </form>
+      <p class="hint">{{ streamKeyNote() }} Streamlabs keeps using the local key <code>airlock</code>.</p>
       <h3>Your rules for {{ platformName() }}</h3>
       <ul class="chips">
         @for (rule of studio.rulesFor(); track $index) {
@@ -182,7 +187,7 @@
         <li>Private terms stay on this PC. The desktop app seals them and keeps the key in the OS keychain. This preview has no keychain, so terms stay in this browser's profile.</li>
         <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
         <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
-        <li>A stream key stays in the OS keychain. It is not written into settings or logs.</li>
+        <li>A stream key stays in the OS keychain. It is not written into settings or logs. When one is saved, Go live sends the held picture and sound to that platform.</li>
         <li>Crash and latency reports stay off unless you opt in below, and they never include the transcript or a key. No destination is configured, so nothing is sent.</li>
       </ul>
       <label class="stall">

@@ -39,3 +39,32 @@ impl EgressTarget {
         }
     }
 }
+
+/// Ingest address without the stream key. `None` when the platform has no public ingest.
+pub fn publish_base(platform: Platform) -> Option<&'static str> {
+    match platform {
+        Platform::Twitch => Some("rtmp://live.twitch.tv/app"),
+        Platform::Youtube => Some("rtmp://a.rtmp.youtube.com/live2"),
+        Platform::Kick => Some("rtmps://fa723fc1b171.global-contribute.live-video.net/app"),
+        Platform::Generic => None,
+    }
+}
+
+/// Keychain account for that platform's stream key. Not the key itself.
+pub fn key_account(platform: Platform) -> &'static str {
+    match platform {
+        Platform::Twitch => "airlock/twitch",
+        Platform::Youtube => "airlock/youtube",
+        Platform::Kick => "airlock/kick",
+        Platform::Generic => "airlock/generic",
+    }
+}
+
+pub fn platform_name(platform: Platform) -> &'static str {
+    match platform {
+        Platform::Twitch => "Twitch",
+        Platform::Youtube => "YouTube",
+        Platform::Kick => "Kick",
+        Platform::Generic => "the platform",
+    }
+}

@@ -102,6 +102,12 @@ pub enum UiEvent {
     Ingest {
         connected: bool,
     },
+    /// The held stream is being sent to the platform, or it is not.
+    /// `detail` is safe to show. It never contains a stream key.
+    Egress {
+        active: bool,
+        detail: String,
+    },
 }
 
 /// What the judge thread needs for one request (owned, so it can cross threads).
