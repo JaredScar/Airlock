@@ -45,7 +45,15 @@
       Black out video
     </label>
     <button class="dump" (click)="dump()" [disabled]="!al.running()">Dump</button>
-    <button class="ghost demo" (click)="al.startDemo()">{{ al.running() ? 'Restart' : 'Run demo' }}</button>
+    <label class="blackout">
+      <input type="checkbox" [checked]="demoMode()" [disabled]="al.running()" (change)="setDemo($event)" />
+      Demo
+    </label>
+    @if (demoMode()) {
+      <button class="ghost demo" (click)="al.startDemo()">{{ al.running() ? 'Restart' : 'Run demo' }}</button>
+    } @else {
+      <button class="go" (click)="toggleLive()">{{ al.running() ? 'Stop' : 'Go live' }}</button>
+    }
   </div>
 </header>
 
@@ -88,7 +96,7 @@
 <section class="health" aria-label="Pipeline health">
   <span>Hold <b>{{ al.delayMs() / 1000 | number: '1.1-1' }}s</b></span>
   <span>Buffer <b>{{ delayFill() | number: '1.0-0' }}%</b></span>
-  <span>Ingest <b title="Shown when a broadcast is connected">—</b></span>
+  <span>Ingest <b [attr.title]="ingestTitle()">{{ ingestLabel() }}</b></span>
   <span>Dropped <b title="Shown when a broadcast is connected">—</b></span>
   <span>Speech <b title="No samples yet">—</b></span>
   <span>Judge <b title="No samples yet">—</b></span>

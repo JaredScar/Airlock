@@ -32,7 +32,7 @@ and redacts problems in the *delayed* copy before it leaves the machine.
 | `airlock-vision` | `TextRecognizer` trait, `FrameSampler`, downscale, region tracking, Windows OCR (`winocr` feature) | Sampler, downscale, tracking, and Windows OCR tested |
 | `airlock-media` | Audio bleep/mute, delay-then-redact PCM, time-stretch, passthrough video hold, output pacer, FLV tags, AAC via ffmpeg, SRT listen, RTMP listen for one publisher with PTS rebase, RTMPS URL publish with retry, CUDA region pixelate then NVENC (CPU pixelate when CUDA is missing), CPU blackout | File audio, an hour of video timestamps, a local RTMP publish and retry, an RTMP listen and reconnect, an SRT tone, and a GPU-pixelated clip tested; Streamlabs start/stop TODO |
 | `airlock-pipeline` | `Session` orchestrator, session-thread bus, `StudioSettings`, sealed private terms, judge scheduler, eval scoring, incident exports | Implemented + end-to-end test |
-| `apps/desktop` | Tauri 2 shell + Angular review UI, settings, compact mode, global hotkeys, system tray | Demo and settings working; OBS autostart and real ingest TODO |
+| `apps/desktop` | Tauri 2 shell + Angular review UI, settings, compact mode, global hotkeys, system tray | Go live opens the local listener and feeds the delay; demo is a separate switch. OBS autostart TODO |
 
 ## Core rules
 

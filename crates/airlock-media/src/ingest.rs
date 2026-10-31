@@ -2,6 +2,7 @@
 //! stream. When that publisher hangs up, the caller listens again, so the
 //! process does not have to restart. PTS values are rebased onto `Ts`.
 
+use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,7 +11,7 @@ use std::time::Duration;
 
 use airlock_core::Ts;
 
-use crate::audio_path::MediaError;
+use crate::audio_path::{MediaError, Pcm, STUDIO_CHANNELS, STUDIO_RATE_HZ};
 
 /// Local listen port from the setup guide.
 pub const INGEST_PORT: u16 = 1935;
@@ -135,6 +136,172 @@ pub fn serve(
         }
     }
     Ok(())
+}
+
+/// Listens until `stop`, copying each publisher to an flv and decoding its audio
+/// to 48 kHz stereo. PCM timestamps continue across a reconnect.
+pub fn serve_capture(
+    port: u16,
+    directory: &Path,
+    stop: &AtomicBool,
+    mut on_connection: impl FnMut(bool),
+    mut on_pcm: impl FnMut(Pcm),
+) -> Result<(), MediaError> {
+    std::fs::create_dir_all(directory).map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+    let mut clock = PtsClock::default();
+    let mut n = 0u32;
+    while !stop.load(Ordering::SeqCst) {
+        let path = directory.join(format!("ingest-{n}.flv"));
+        match capture_one(
+            port,
+            &path,
+            stop,
+            &mut clock,
+            &mut on_connection,
+            &mut on_pcm,
+        ) {
+            Ok(()) => n = n.saturating_add(1),
+            Err(MediaError::FfmpegMissing) => return Err(MediaError::FfmpegMissing),
+            Err(_) if stop.load(Ordering::SeqCst) => break,
+            Err(_) => thread::sleep(Duration::from_millis(200)),
+        }
+    }
+    Ok(())
+}
+
+fn capture_one(
+    port: u16,
+    flv: &Path,
+    stop: &AtomicBool,
+    clock: &mut PtsClock,
+    on_connection: &mut impl FnMut(bool),
+    on_pcm: &mut impl FnMut(Pcm),
+) -> Result<(), MediaError> {
+    let url = ingest_url(port);
+    let mut child = Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-loglevel",
+            "error",
+            "-rtmp_listen",
+            "1",
+            "-timeout",
+            "8",
+            "-i",
+            &url,
+            "-map",
+            "0:a:0",
+            "-ac",
+            "2",
+            "-ar",
+            "48000",
+            "-f",
+            "f32le",
+            "-acodec",
+            "pcm_f32le",
+            "pipe:1",
+            "-map",
+            "0",
+            "-c",
+            "copy",
+        ])
+        .arg(flv)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(io_error)?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| MediaError::Ffmpeg("ingest stdout closed".into()))?;
+    thread::scope(|scope| {
+        scope.spawn(|| {
+            loop {
+                if stop.load(Ordering::SeqCst) {
+                    let _ = child.kill();
+                    break;
+                }
+                match child.try_wait() {
+                    Ok(Some(_)) => break,
+                    Ok(None) => thread::sleep(Duration::from_millis(50)),
+                    Err(_) => break,
+                }
+            }
+            let _ = child.wait();
+        });
+        read_pcm(&mut stdout, stop, clock, on_connection, on_pcm)
+    })?;
+    if file_len(flv) > 100 {
+        clock.disconnected();
+        Ok(())
+    } else if stop.load(Ordering::SeqCst) {
+        Ok(())
+    } else {
+        Err(MediaError::Ffmpeg("ingest failed".into()))
+    }
+}
+
+fn read_pcm(
+    stdout: &mut impl Read,
+    stop: &AtomicBool,
+    clock: &mut PtsClock,
+    on_connection: &mut impl FnMut(bool),
+    on_pcm: &mut impl FnMut(Pcm),
+) -> Result<(), MediaError> {
+    let chunk_bytes = 960 * STUDIO_CHANNELS * 4;
+    let mut pending = Vec::new();
+    let mut tmp = [0u8; 8192];
+    let mut connected = false;
+    let mut frames = 0i64;
+    loop {
+        if stop.load(Ordering::SeqCst) && pending.len() < chunk_bytes {
+            break;
+        }
+        let n = stdout
+            .read(&mut tmp)
+            .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+        if n == 0 {
+            break;
+        }
+        if !connected {
+            connected = true;
+            on_connection(true);
+        }
+        pending.extend_from_slice(&tmp[..n]);
+        while pending.len() >= chunk_bytes {
+            let bytes: Vec<u8> = pending.drain(..chunk_bytes).collect();
+            emit_pcm(&bytes, &mut frames, clock, on_pcm);
+        }
+    }
+    let tail = pending.len() - pending.len() % (STUDIO_CHANNELS * 4);
+    if tail >= STUDIO_CHANNELS * 4 {
+        emit_pcm(&pending[..tail], &mut frames, clock, on_pcm);
+    }
+    if connected {
+        on_connection(false);
+    }
+    if frames == 0 {
+        Err(MediaError::Ffmpeg("ingest failed".into()))
+    } else {
+        Ok(())
+    }
+}
+
+fn emit_pcm(bytes: &[u8], frames: &mut i64, clock: &mut PtsClock, on_pcm: &mut impl FnMut(Pcm)) {
+    let samples: Vec<f32> = bytes
+        .chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect();
+    let start_us = frames.saturating_mul(1_000_000) / i64::from(STUDIO_RATE_HZ);
+    let start = clock.stamp(start_us);
+    *frames = frames.saturating_add((samples.len() / STUDIO_CHANNELS) as i64);
+    on_pcm(Pcm {
+        start,
+        sample_rate: STUDIO_RATE_HZ,
+        channels: STUDIO_CHANNELS,
+        samples,
+    });
 }
 
 fn file_len(path: &Path) -> u64 {
@@ -276,6 +443,72 @@ mod tests {
             .unwrap_or(0);
         assert!(first > 100, "first connection was {first} bytes");
         assert!(next > 100, "reconnect was {next} bytes");
+        let seen = states.lock().unwrap().clone();
+        assert!(
+            seen.windows(2).any(|pair| pair == [true, false]),
+            "connection states were {seen:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_publisher_becomes_studio_audio_and_a_copy() {
+        if !ffmpeg_present() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("airlock-cap-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let port = free_port();
+        let url = ingest_url(port);
+        let stop = Arc::new(AtomicBool::new(false));
+        let samples = Arc::new(Mutex::new(0usize));
+        let states = Arc::new(Mutex::new(Vec::new()));
+        let stop_thread = Arc::clone(&stop);
+        let samples_thread = Arc::clone(&samples);
+        let states_thread = Arc::clone(&states);
+        let dir_thread = dir.clone();
+        let server = thread::spawn(move || {
+            serve_capture(
+                port,
+                &dir_thread,
+                &stop_thread,
+                |up| states_thread.lock().unwrap().push(up),
+                |pcm| {
+                    assert_eq!(pcm.sample_rate, 48_000);
+                    assert_eq!(pcm.channels, 2);
+                    *samples_thread.lock().unwrap() += pcm.samples.len();
+                },
+            )
+        });
+        thread::sleep(Duration::from_millis(700));
+        let published = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=1",
+                "-c:a",
+                "aac",
+                "-f",
+                "flv",
+                &url,
+            ])
+            .status()
+            .unwrap();
+        assert!(published.success(), "publisher failed");
+        thread::sleep(Duration::from_millis(400));
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap().expect("capture");
+        let got = *samples.lock().unwrap();
+        assert!(got > 40_000, "decoded {got} samples");
+        let copy = std::fs::metadata(dir.join("ingest-0.flv"))
+            .map(|m| m.len())
+            .unwrap_or(0);
+        assert!(copy > 100, "ingest copy was {copy} bytes");
         let seen = states.lock().unwrap().clone();
         assert!(
             seen.windows(2).any(|pair| pair == [true, false]),

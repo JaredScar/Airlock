@@ -1,15 +1,16 @@
 //! Tauri host. Owns the live `Session` and bridges it to the Angular UI:
 //! commands in (approve/veto/policy), `airlock://event` events out.
 //!
-//! Right now the only session source is `start_demo`, which replays a scripted
-//! stream through the real engine so the UI can be built before media ingest exists.
-//! PLAN.md Phase 1/2 replaces it with real ingest + ASR threads.
+//! `start_live` listens for a publisher and feeds the delay. `start_demo` replays
+//! a scripted stream and is the dev toggle in the UI.
 
 mod demo;
 mod keys;
+mod live;
 
 use airlock_core::RedactionId;
-use airlock_pipeline::{Session, StudioSettings, incident};
+use airlock_pipeline::{Session, StudioSettings, UiEvent, incident};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -20,6 +21,8 @@ pub const EVENT_CHANNEL: &str = "airlock://event";
 pub struct AppState {
     pub session: Arc<Mutex<Option<Session>>>,
     pub studio: Arc<Mutex<StudioSettings>>,
+    /// Bumped by Go live, Stop, and Run demo. A worker exits when this changes.
+    pub generation: Arc<AtomicU64>,
 }
 
 #[tauri::command]
@@ -86,7 +89,48 @@ fn start_demo(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), S
         .lock()
         .map_err(|_| "settings lock poisoned".to_string())?
         .clone();
-    demo::start(app, state.session.clone(), settings).map_err(|e| e.to_string())
+    let mine = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    demo::start(
+        app,
+        state.session.clone(),
+        settings,
+        state.generation.clone(),
+        mine,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn start_live(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let ffmpeg_ok = std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+    if !ffmpeg_ok {
+        return Err("ffmpeg is not on PATH".into());
+    }
+    let settings = state
+        .studio
+        .lock()
+        .map_err(|_| "settings lock poisoned".to_string())?
+        .clone();
+    settings.session_config()?;
+    let mine = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    live::start(
+        app,
+        state.session.clone(),
+        settings,
+        state.generation.clone(),
+        mine,
+    )
+}
+
+#[tauri::command]
+fn stop_live(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    state.generation.fetch_add(1, Ordering::SeqCst);
+    let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected: false });
+    Ok(())
 }
 
 #[tauri::command]
@@ -261,6 +305,8 @@ pub fn run() {
             set_safe_mode,
             set_compact,
             start_demo,
+            start_live,
+            stop_live,
             approve,
             veto,
             dump,

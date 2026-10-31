@@ -112,6 +112,13 @@ button.approve:hover:not(:disabled) { background: #d7a0ff; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; flex: 1 1 280px; min-width: 0; }
 .blackout { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; user-select: none; }
 .blackout input { accent-color: var(--live); width: 14px; height: 14px; }
+button.go {
+  background: var(--live);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 650;
+}
+button.go:hover:not(:disabled) { background: #ff6264; }
 button.dump {
   background: var(--live);
   border-color: #ff7072;

@@ -32,6 +32,7 @@ export class AirlockService {
   readonly pending = signal<Map<number, Redaction>>(new Map());
   readonly aired = signal<Redaction[]>([]);
   readonly running = signal(false);
+  readonly ingest = signal<boolean | null>(null);
   readonly error = signal<string | null>(null);
   readonly stall = signal<string | null>(null);
 
@@ -49,6 +50,40 @@ export class AirlockService {
     if (this.listening || !inDesktopShell()) return;
     this.listening = true;
     await listen<UiEvent>(EVENT_CHANNEL, (e) => this.zone.run(() => this.apply(e.payload)));
+  }
+
+  async startLive(): Promise<void> {
+    if (!inDesktopShell()) {
+      this.error.set('Open the Airlock app to go live.');
+      return;
+    }
+    this.stopFixture();
+    await this.ensureListening();
+    this.reset();
+    this.running.set(true);
+    this.ingest.set(false);
+    try {
+      await invoke('start_live');
+    } catch (e) {
+      this.running.set(false);
+      this.ingest.set(null);
+      this.error.set(String(e));
+    }
+  }
+
+  async stopLive(): Promise<void> {
+    if (!inDesktopShell()) {
+      this.running.set(false);
+      this.ingest.set(false);
+      return;
+    }
+    try {
+      await invoke('stop_live');
+    } catch (e) {
+      this.error.set(String(e));
+    }
+    this.running.set(false);
+    this.ingest.set(false);
   }
 
   async startDemo(): Promise<void> {
@@ -182,6 +217,7 @@ export class AirlockService {
     this.aired.set([]);
     this.error.set(null);
     this.stall.set(null);
+    this.ingest.set(null);
   }
 
   private apply(ev: UiEvent) {
@@ -206,6 +242,9 @@ export class AirlockService {
         break;
       case 'analysis_stall':
         this.stall.set(ev.active ? ev.message : null);
+        break;
+      case 'ingest':
+        this.ingest.set(ev.connected);
         break;
       default: {
         const unexpected: never = ev;

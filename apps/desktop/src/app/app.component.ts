@@ -33,6 +33,7 @@ export class AppComponent {
     return Math.min(100, (this.al.delayMs() / hold) * 100);
   });
   readonly blackoutVideo = signal(false);
+  readonly demoMode = signal(false);
 
   platformName(): string {
     const id = this.studio.settings().platform;
@@ -70,9 +71,27 @@ export class AppComponent {
         else if (event.payload === 'dump') this.dump();
         else if (event.payload === 'safe') this.toggleSafe();
       });
-    } else {
-      this.al.playFixture();
     }
+  }
+
+  ingestLabel(): string {
+    const connected = this.al.ingest();
+    if (connected === null) return '—';
+    return connected ? 'Connected' : 'Disconnected';
+  }
+
+  ingestTitle(): string {
+    return this.ingestLabel() === '—' ? 'Shown when Go live is running' : 'Local publisher';
+  }
+
+  setDemo(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.demoMode.set(input.checked);
+  }
+
+  toggleLive() {
+    if (this.al.running()) void this.al.stopLive();
+    else void this.al.startLive();
   }
 
   toggleTheme() {

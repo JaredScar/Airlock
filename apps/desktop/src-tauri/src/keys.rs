@@ -83,6 +83,18 @@ fn encode_key(key: &[u8; 32]) -> String {
     key.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+fn decode_key(stored: &str) -> Result<[u8; 32], String> {
+    if stored.len() != 64 {
+        return Err("term key is unreadable".into());
+    }
+    let mut key = [0u8; 32];
+    for (i, byte) in key.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&stored[i * 2..i * 2 + 2], 16)
+            .map_err(|_| "term key is unreadable".to_string())?;
+    }
+    Ok(key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,16 +107,4 @@ mod tests {
         let err = store_stream_key("airlock/twitch", " ").unwrap_err();
         assert_eq!(err, "stream key is empty");
     }
-}
-
-fn decode_key(stored: &str) -> Result<[u8; 32], String> {
-    if stored.len() != 64 {
-        return Err("term key is unreadable".into());
-    }
-    let mut key = [0u8; 32];
-    for (i, byte) in key.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&stored[i * 2..i * 2 + 2], 16)
-            .map_err(|_| "term key is unreadable".to_string())?;
-    }
-    Ok(key)
 }

@@ -98,6 +98,10 @@ pub enum UiEvent {
         fallback: StallFallback,
         message: String,
     },
+    /// A publisher is connected to the local RTMP listener, or it hung up.
+    Ingest {
+        connected: bool,
+    },
 }
 
 /// What the judge thread needs for one request (owned, so it can cross threads).

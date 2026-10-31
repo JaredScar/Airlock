@@ -21,6 +21,8 @@ pub fn start(
     app: AppHandle,
     slot: Arc<Mutex<Option<Session>>>,
     settings: airlock_pipeline::StudioSettings,
+    generation: Arc<std::sync::atomic::AtomicU64>,
+    mine: u64,
 ) -> Result<(), String> {
     {
         let mut guard = slot.lock().map_err(|_| "lock poisoned")?;
@@ -35,7 +37,13 @@ pub fn start(
         let mut showed_key = false;
 
         loop {
+            if generation.load(std::sync::atomic::Ordering::SeqCst) != mine {
+                return;
+            }
             std::thread::sleep(Duration::from_millis(100));
+            if generation.load(std::sync::atomic::Ordering::SeqCst) != mine {
+                return;
+            }
             let live = Ts::from_millis(started.elapsed().as_millis() as i64);
             let words = asr
                 .push(&chunk, live - airlock_core::Dur::from_millis(100))

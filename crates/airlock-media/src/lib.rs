@@ -24,7 +24,9 @@ pub use audio_fx::{AudioChunk, apply_audio_redactions};
 pub use audio_path::{AudioHold, MediaError, Pcm, decode_studio_pcm, encode_aac, time_stretch};
 pub use egress::{EgressTarget, VideoEncoder};
 pub use eval_media::write_eval_clips;
-pub use ingest::{INGEST_KEY, INGEST_PORT, PtsClock, accept_publisher, ingest_url, serve};
+pub use ingest::{
+    INGEST_KEY, INGEST_PORT, PtsClock, accept_publisher, ingest_url, serve, serve_capture,
+};
 pub use link::{
     publish_file, publish_with_retry, receive_srt_wav, reconnect_backoff, secure_publish_url,
 };
