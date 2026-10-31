@@ -7,8 +7,9 @@ license.workspace = true
 authors.workspace = true
 
 [features]
-# In-process FFmpeg (ffmpeg-next) ingest/egress. Off by default so the engine builds
-# and tests without FFmpeg dev libraries. See PLAN.md Phase 1.
+# Reserved for a future in-process ffmpeg-next build. The listener and the
+# publish step call the ffmpeg binary on PATH instead, so tests do not need
+# FFmpeg dev libraries.
 ffmpeg = []
 
 [dependencies]

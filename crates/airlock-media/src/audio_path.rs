@@ -1,7 +1,7 @@
 //! File-side audio path: decode to studio PCM, hold it, redact, encode AAC.
 //!
 //! Studio audio is interleaved `f32`, 48 kHz, stereo. Decode and AAC encode call the
-//! `ffmpeg` binary. Live RTMP ingest is still the Phase 1 spike; this path proves the
+//! `ffmpeg` binary. Live RTMP ingest is `accept_publisher`; this path proves the
 //! same PCM contract on a file, with no FFmpeg dev libraries linked in.
 
 use std::io::{ErrorKind, Write};
