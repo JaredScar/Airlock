@@ -1,9 +1,10 @@
 //! Local Whisper. The desktop app builds this behind the `whisper` feature.
 //!
-//! A word is committed on the first window so it can show during the delay.
-//! A later window can replace that word when it hears the same moment differently.
-//! The same word is not written twice. A very unsure guess is dropped.
-//! Non-speech markers such as `[BLANK_AUDIO]` are dropped.
+//! Each stretch of audio is committed once, from the stable middle of a window.
+//! The last second of a window waits for the next hop, where it is no longer
+//! the unstable tail. A pause commits the phrase immediately. The same word is
+//! not written twice. A very unsure guess is dropped. Non-speech markers such
+//! as `[BLANK_AUDIO]` are dropped.
 
 use crate::{ASR_SAMPLE_RATE, AsrError, SpeechRecognizer};
 use airlock_core::{Dur, Span, Ts, Word};
@@ -41,8 +42,6 @@ pub struct WhisperRecognizer {
     agreement: WordAgreement,
     /// The open phrase was already transcribed when speech paused.
     phrase_sent: bool,
-    /// The first second of this buffer already produced a guess.
-    early_sent: bool,
     #[cfg(feature = "whisper")]
     state: whisper_rs::WhisperState,
     #[cfg(feature = "whisper")]
@@ -85,7 +84,6 @@ impl WhisperRecognizer {
                 window: config.window(),
                 agreement: WordAgreement::default(),
                 phrase_sent: false,
-                early_sent: false,
                 state,
                 language: config.language,
                 threads,
@@ -170,11 +168,6 @@ impl SampleWindow {
         Some((at, std::mem::take(&mut self.buf)))
     }
 
-    /// No full window has been emitted from this buffer yet.
-    fn awaiting_first_window(&self) -> bool {
-        self.hopped == 0
-    }
-
     /// Audio still waiting for a full window.
     fn pending(&self) -> Option<(Ts, &[f32])> {
         if self.buf.is_empty() {
@@ -201,8 +194,8 @@ struct Heard {
     confidence: f32,
 }
 
-/// Commits a word once. The same word in a later window is not written again.
-/// A different word on that same time replaces it when the new guess is not worse.
+/// Commits the stable part of one window. Audio already committed is left alone,
+/// and the last second of an open window waits for the next hop.
 #[derive(Debug, Default)]
 struct WordAgreement {
     previous: Vec<Heard>,
@@ -220,10 +213,33 @@ struct Said {
 
 #[cfg_attr(not(feature = "whisper"), allow(dead_code))]
 impl WordAgreement {
-    fn push(&mut self, heard: Vec<Heard>, _window_start: Ts) -> Vec<Word> {
+    /// `window_end` is the media time of the last sample in this decode.
+    /// `complete` is a pause or a flush, so the tail is committed too.
+    fn push(&mut self, heard: Vec<Heard>, window_end: Ts, complete: bool) -> Vec<Word> {
+        let heard = collapse_consecutive(heard);
+        let stable_until = if complete {
+            window_end
+        } else {
+            Ts(window_end.0.saturating_sub(TAIL_US))
+        };
         let mut out = Vec::new();
         for word in &heard {
+            if word.end <= self.committed_until {
+                continue;
+            }
+            if word.start < self.committed_until {
+                let mid = word.start.0 + (word.end.0 - word.start.0) / 2;
+                if mid < self.committed_until.0 {
+                    continue;
+                }
+            }
+            if word.start >= stable_until {
+                continue;
+            }
             self.commit_heard(word, &mut out);
+        }
+        if !out.is_empty() {
+            self.committed_until = self.committed_until.max(stable_until);
         }
         out
     }
@@ -290,9 +306,26 @@ impl WordAgreement {
 /// Guesses below this are usually noise. A later window can still say the word.
 const MIN_WORD_CONFIDENCE: f32 = 0.25;
 
-/// The same word heard again inside this gap is the overlapping window, not a
-/// second utterance. Two seconds of audio are decoded on each hop.
+/// The same word heard again inside this gap is one utterance.
 const REPEAT_GAP_US: i64 = 2_500_000;
+
+/// Words in the last part of an open window are held for the next hop.
+/// Short enough that a word still shows well before the delay lets it air.
+const TAIL_US: i64 = 400_000;
+
+fn collapse_consecutive(heard: Vec<Heard>) -> Vec<Heard> {
+    let mut out: Vec<Heard> = Vec::new();
+    for word in heard {
+        if let Some(prev) = out.last() {
+            let same = normalize_word(&prev.text) == normalize_word(&word.text);
+            if same && within_repeat(prev.start, prev.end, word.start, word.end) {
+                continue;
+            }
+        }
+        out.push(word);
+    }
+    out
+}
 
 #[cfg_attr(not(feature = "whisper"), allow(dead_code))]
 fn within_repeat(a0: Ts, a1: Ts, b0: Ts, b1: Ts) -> bool {
@@ -413,31 +446,15 @@ impl SpeechRecognizer for WhisperRecognizer {
             out.extend(self.agreement.flush());
             self.window.reset();
             self.phrase_sent = false;
-            self.early_sent = false;
         }
         let ready = self.window.push(samples, start);
-        let early = if ready.is_empty() && !self.early_sent && self.window.awaiting_first_window() {
-            let rate = self.window.rate;
-            self.window.pending().and_then(|(at, audio)| {
-                (audio.len() >= rate as usize && !crate::audio::is_near_silence(audio))
-                    .then(|| (at, audio.to_vec()))
-            })
-        } else {
-            None
-        };
-        if let Some((at, audio)) = early {
-            self.early_sent = true;
-            self.phrase_sent = true;
-            out.extend(self.transcribe(&audio, at)?);
-        }
         for (at, audio) in ready {
             if crate::audio::is_near_silence(&audio) {
                 out.extend(self.agreement.flush());
                 continue;
             }
-            self.early_sent = false;
             self.phrase_sent = true;
-            out.extend(self.transcribe(&audio, at)?);
+            out.extend(self.transcribe(&audio, at, false)?);
         }
         if !self.phrase_sent {
             let rate = self.window.rate;
@@ -447,7 +464,7 @@ impl SpeechRecognizer for WhisperRecognizer {
                 .and_then(|(at, audio)| phrase_is_ready(audio, rate).then(|| (at, audio.to_vec())));
             if let Some((at, audio)) = early {
                 self.phrase_sent = true;
-                out.extend(self.transcribe(&audio, at)?);
+                out.extend(self.transcribe(&audio, at, true)?);
             }
         }
         Ok(out)
@@ -458,7 +475,7 @@ impl SpeechRecognizer for WhisperRecognizer {
         if let Some((at, audio)) = self.window.finish()
             && audio.len() >= (ASR_SAMPLE_RATE / 2) as usize
         {
-            out.extend(self.transcribe(&audio, at)?);
+            out.extend(self.transcribe(&audio, at, true)?);
         }
         out.extend(self.agreement.flush());
         Ok(out)
@@ -466,20 +483,20 @@ impl SpeechRecognizer for WhisperRecognizer {
 }
 
 impl WhisperRecognizer {
-    fn transcribe(&mut self, audio: &[f32], at: Ts) -> Result<Vec<Word>, AsrError> {
+    fn transcribe(&mut self, audio: &[f32], at: Ts, complete: bool) -> Result<Vec<Word>, AsrError> {
         #[cfg(not(feature = "whisper"))]
         {
-            let _ = (audio, at);
+            let _ = (audio, at, complete);
             Err(AsrError::NotImplemented("WhisperRecognizer::push"))
         }
         #[cfg(feature = "whisper")]
         {
-            self.run_model(audio, at)
+            self.run_model(audio, at, complete)
         }
     }
 
     #[cfg(feature = "whisper")]
-    fn run_model(&mut self, audio: &[f32], at: Ts) -> Result<Vec<Word>, AsrError> {
+    fn run_model(&mut self, audio: &[f32], at: Ts, complete: bool) -> Result<Vec<Word>, AsrError> {
         let mut samples = audio.to_vec();
         if samples.len() < ASR_SAMPLE_RATE as usize {
             samples.resize(ASR_SAMPLE_RATE as usize, 0.0);
@@ -499,7 +516,7 @@ impl WhisperRecognizer {
         params.set_token_timestamps(true);
         params.set_temperature(0.0);
         params.set_temperature_inc(0.0);
-        params.set_max_tokens(48);
+        params.set_max_tokens(0);
         if let Some(language) = self.language.as_deref() {
             params.set_language(Some(language));
         }
@@ -507,7 +524,8 @@ impl WhisperRecognizer {
             .full(params, &samples)
             .map_err(|err| AsrError::Inference(err.to_string()))?;
         let heard = words_from_state(&self.state, at, audio.len());
-        Ok(self.agreement.push(heard, at))
+        let window_end = at + Dur((audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
+        Ok(self.agreement.push(heard, window_end, complete))
     }
 }
 
@@ -520,7 +538,7 @@ fn words_from_state(
     let limit = origin + Dur((real_samples as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
     let mut heard = Vec::new();
     for segment in state.as_iter() {
-        if segment.no_speech_probability() > 0.7 {
+        if segment.no_speech_probability() > 0.6 {
             continue;
         }
         let mut partials = Vec::new();
@@ -651,7 +669,11 @@ mod tests {
             end: Ts::from_millis(start_ms + 300),
             confidence: 0.8,
         };
-        let first = agree.push(vec![heard("Hello,", 100), heard("there", 500)], Ts::ZERO);
+        let first = agree.push(
+            vec![heard("Hello,", 100), heard("there", 500)],
+            Ts::from_millis(3_000),
+            false,
+        );
         assert_eq!(
             first
                 .iter()
@@ -663,9 +685,10 @@ mod tests {
             vec![
                 heard("hello", 140),
                 heard("there", 520),
-                heard("friend", 2_000),
+                heard("friend", 2_800),
             ],
-            Ts::from_millis(1_000),
+            Ts::from_millis(4_000),
+            false,
         );
         assert_eq!(
             overlap
@@ -674,7 +697,11 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["friend"]
         );
-        let marker = agree.push(vec![heard("[BLANK_AUDIO]", 4_000)], Ts::from_millis(3_000));
+        let marker = agree.push(
+            vec![heard("[BLANK_AUDIO]", 4_000)],
+            Ts::from_millis(5_000),
+            true,
+        );
         assert!(marker.iter().all(|word| !word.text.contains("BLANK")));
     }
 
@@ -703,7 +730,7 @@ mod tests {
     }
 
     #[test]
-    fn a_later_window_replaces_a_worse_guess_and_a_weak_guess_is_dropped() {
+    fn a_window_keeps_its_stable_words_and_drops_repeats_and_the_tail() {
         let mut agree = WordAgreement::default();
         let heard = |text: &str, start_ms: i64, confidence: f32| Heard {
             text: text.into(),
@@ -713,7 +740,8 @@ mod tests {
         };
         let first = agree.push(
             vec![heard("free", 100, 0.6), heard("ride", 500, 0.6)],
-            Ts::ZERO,
+            Ts::from_millis(3_000),
+            false,
         );
         assert_eq!(
             first
@@ -722,22 +750,30 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["free", "ride"]
         );
-        let corrected = agree.push(
-            vec![heard("I", 100, 0.8), heard("need", 500, 0.75)],
-            Ts::from_millis(1_000),
+        let tail = heard("later", 2_600, 0.9);
+        let held = agree.push(vec![tail], Ts::from_millis(3_000), false);
+        assert!(held.is_empty());
+        let next = agree.push(
+            vec![
+                heard("I", 100, 0.9),
+                heard("the", 2_800, 0.8),
+                heard("the", 3_000, 0.8),
+                heard("the", 3_200, 0.8),
+            ],
+            Ts::from_millis(4_000),
+            false,
         );
         assert_eq!(
-            corrected
-                .iter()
+            next.iter()
                 .map(|word| word.text.as_str())
                 .collect::<Vec<_>>(),
-            vec!["I", "need"]
+            vec!["the"]
         );
-        let worse = agree.push(vec![heard("speloni", 100, 0.4)], Ts::from_millis(1_250));
-        assert!(worse.is_empty());
-        let weak = agree.push(vec![heard("baloney", 3_000, 0.1)], Ts::from_millis(2_000));
+        let weak = agree.push(
+            vec![heard("baloney", 3_200, 0.1)],
+            Ts::from_millis(5_000),
+            true,
+        );
         assert!(weak.is_empty());
-        let repeated = agree.push(vec![heard("need", 1_600, 0.9)], Ts::from_millis(1_500));
-        assert!(repeated.is_empty());
     }
 }

@@ -64,9 +64,13 @@ export function transcriptStates(
       if (redaction.target.kind !== 'audio') return false;
       const mid = word.span.start + (word.span.end - word.span.start) / 2;
       const coversMid = mid >= redaction.span.start && mid < redaction.span.end;
+      const wordLen = Math.max(word.span.end - word.span.start, 1);
+      const redLen = redaction.span.end - redaction.span.start;
       const covered =
         Math.min(redaction.span.end, word.span.end) - Math.max(redaction.span.start, word.span.start);
-      return coversMid && covered >= (word.span.end - word.span.start) / 2;
+      // A bleep only paints the word it belongs to. A long span must not turn
+      // the words around it purple.
+      return coversMid && covered >= wordLen / 2 && redLen <= wordLen + 500_000;
     };
     const hit = upcoming.find(overlaps) ?? aired.find(overlaps);
     const state = hit ? (isActive(hit) ? 'redacted' : 'flagged') : hasAired ? 'aired' : 'held';

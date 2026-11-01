@@ -264,8 +264,9 @@ fn recognize(
             let config = WhisperConfig {
                 model_path,
                 use_gpu: cfg!(feature = "cuda"),
-                // Two seconds of context, with a guess at one second and a
-                // quarter-second hop after that. A pause transcribes immediately.
+                // Two seconds of audio, then a quarter-second hop, so a word
+                // shows during the delay. The tail of the window waits one hop.
+                // A pause transcribes immediately.
                 window_ms: 2_000,
                 hop_ms: 250,
                 ..WhisperConfig::default()

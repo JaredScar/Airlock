@@ -282,7 +282,7 @@ impl Session {
                 .iter()
                 .map(|idx| self.transcript[*idx].confidence)
                 .fold(0.0_f32, f32::max);
-            if word.confidence + 0.15 < best {
+            if word.confidence < best + 0.15 {
                 continue;
             }
             for idx in hits {
