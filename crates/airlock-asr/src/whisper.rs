@@ -304,7 +304,7 @@ impl WordAgreement {
 }
 
 /// Guesses below this are usually noise. A later window can still say the word.
-const MIN_WORD_CONFIDENCE: f32 = 0.25;
+const MIN_WORD_CONFIDENCE: f32 = 0.4;
 
 /// The same word heard again inside this gap is one utterance.
 const REPEAT_GAP_US: i64 = 2_500_000;
@@ -501,8 +501,10 @@ impl WhisperRecognizer {
         if samples.len() < ASR_SAMPLE_RATE as usize {
             samples.resize(ASR_SAMPLE_RATE as usize, 0.0);
         }
-        let mut params =
-            whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
+        let mut params = whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::BeamSearch {
+            beam_size: 2,
+            patience: -1.0,
+        });
         params.set_n_threads(self.threads);
         params.set_translate(false);
         params.set_no_context(true);
@@ -510,7 +512,7 @@ impl WhisperRecognizer {
         params.set_print_realtime(false);
         params.set_print_special(false);
         params.set_print_timestamps(false);
-        params.set_single_segment(false);
+        params.set_single_segment(true);
         params.set_suppress_blank(true);
         params.set_suppress_nst(true);
         params.set_token_timestamps(true);
@@ -538,7 +540,7 @@ fn words_from_state(
     let limit = origin + Dur((real_samples as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
     let mut heard = Vec::new();
     for segment in state.as_iter() {
-        if segment.no_speech_probability() > 0.6 {
+        if segment.no_speech_probability() > 0.5 {
             continue;
         }
         let mut partials = Vec::new();
@@ -576,6 +578,16 @@ fn words_from_state(
                 word.p_sum += token.token_probability();
                 word.n += 1;
             }
+        }
+        if partials.is_empty() {
+            continue;
+        }
+        let mut confidence = 0.0;
+        for word in &partials {
+            confidence += word.p_sum / word.n.max(1) as f32;
+        }
+        if confidence / (partials.len() as f32) < 0.35 {
+            continue;
         }
         let mut times: Vec<(i64, i64)> = partials.iter().map(|w| (w.t0, w.t1)).collect();
         let chars: Vec<usize> = partials.iter().map(|w| w.text.chars().count()).collect();

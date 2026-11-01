@@ -266,7 +266,11 @@ impl Session {
                 .map(|(idx, _)| idx)
                 .collect();
             if hits.is_empty() {
-                if is_repeat(&word, &self.transcript) || is_repeat(&word, &fresh) {
+                if is_repeat(&word, &self.transcript)
+                    || is_repeat(&word, &fresh)
+                    || repeats_latest(&word, self.transcript.last())
+                    || repeats_latest(&word, fresh.last())
+                {
                     continue;
                 }
                 fresh.push(word);
@@ -613,6 +617,15 @@ fn time_overlap(a: Span, b: Span) -> bool {
     }
     let shorter = (a.end.0 - a.start.0).min(b.end.0 - b.start.0).max(1);
     overlap * 2 >= shorter
+}
+
+fn repeats_latest(word: &Word, previous: Option<&Word>) -> bool {
+    let Some(previous) = previous else {
+        return false;
+    };
+    norm_word(&previous.text) == norm_word(&word.text)
+        && word.span.start.0 < previous.span.end.0 + 4_000_000
+        && word.span.end.0 > previous.span.start.0 - 4_000_000
 }
 
 fn is_repeat(word: &Word, existing: &[Word]) -> bool {

@@ -56,24 +56,65 @@ export function transcriptStates(
   upcoming: Redaction[],
   aired: Redaction[],
 ): string[] {
+  const owned = new Map<number, Redaction>();
+  for (const redaction of [...upcoming, ...aired]) {
+    if (redaction.target.kind !== 'audio') continue;
+    const index = listHitOwner(redaction, words);
+    if (index >= 0) owned.set(index, redaction);
+  }
   let cursor = 0;
-  return words.map((word) => {
+  return words.map((word, index) => {
     cursor = Math.max(cursor, word.span.start);
     const hasAired = cursor <= playhead;
     const overlaps = (redaction: Redaction) => {
       if (redaction.target.kind !== 'audio') return false;
+      if (redaction.category === 'profanity' || redaction.category === 'slur') return false;
       const mid = word.span.start + (word.span.end - word.span.start) / 2;
       const coversMid = mid >= redaction.span.start && mid < redaction.span.end;
       const wordLen = Math.max(word.span.end - word.span.start, 1);
-      const redLen = redaction.span.end - redaction.span.start;
       const covered =
         Math.min(redaction.span.end, word.span.end) - Math.max(redaction.span.start, word.span.start);
-      // A bleep only paints the word it belongs to. A long span must not turn
-      // the words around it purple.
-      return coversMid && covered >= wordLen / 2 && redLen <= wordLen + 500_000;
+      return coversMid && covered >= wordLen / 2;
     };
-    const hit = upcoming.find(overlaps) ?? aired.find(overlaps);
+    const hit = owned.get(index) ?? upcoming.find(overlaps) ?? aired.find(overlaps);
     const state = hit ? (isActive(hit) ? 'redacted' : 'flagged') : hasAired ? 'aired' : 'held';
     return hit && hasAired ? `${state} aired` : state;
   });
+}
+
+/** The bleep belongs to the word whose text matches it and whose span holds its middle. */
+function listHitOwner(
+  redaction: Redaction,
+  words: { text: string; span: { start: number; end: number } }[],
+): number {
+  if (redaction.category !== 'profanity' && redaction.category !== 'slur') {
+    return -1;
+  }
+  const mid = (redaction.span.start + redaction.span.end) / 2;
+  let best = -1;
+  let bestScore = 0;
+  let bestLen = Number.POSITIVE_INFINITY;
+  words.forEach((word, index) => {
+    if (mid < word.span.start || mid >= word.span.end) return;
+    const score = evidenceScore(word.text, redaction.evidence);
+    const len = word.span.end - word.span.start;
+    if (score > bestScore || (score === bestScore && score > 0 && len < bestLen)) {
+      best = index;
+      bestScore = score;
+      bestLen = len;
+    }
+  });
+  return best;
+}
+
+function evidenceScore(text: string, evidence: string[]): number {
+  const token = text.toLowerCase().replace(/[^a-z]/g, '');
+  let best = 0;
+  for (const item of evidence) {
+    const prefix = item.toLowerCase().replace(/[^a-z]/g, '');
+    if (prefix.length > 0 && token.startsWith(prefix)) {
+      best = Math.max(best, prefix.length);
+    }
+  }
+  return best;
 }

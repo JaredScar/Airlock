@@ -208,7 +208,8 @@ Video is passed through untouched (no re-encode).
 - D50 2026-11-01: Live speech decodes two seconds of audio and shows a guess at one second. A later window replaces a held word when the new guess is not clearly worse, and the word-list bleep follows that correction. A word that has started airing stays. Guesses below 0.25 confidence, and segments the model marks as non-speech, are dropped. The 1.5s latency bar is still 2.2.
 - D51 2026-11-01: The same word heard again within 2.5s is one utterance, so an overlapping decode does not write it twice. A word-list hit bleeps even when the recognizer's own score is low.
 - D52 2026-11-01: Live speech decodes a 5s window with a 1s hop and beam search. Only the stable part is committed; the last second waits for the next hop, and a pause commits the phrase. A later decode does not rewrite audio already committed. A bleep paints a word only when the redaction is about that word's length. The 1.5s latency bar is still 2.2.
-- D53 2026-11-01: The 5s beam-search window sat too close to air time. Live speech is a 2s window and a 250ms hop again, greedy, with a 400ms tail held for the next hop. Audio already committed is still not rewritten. The 1.5s latency bar is still 2.2.
+- D53 2026-11-01: The 5s beam-search window sat too close to air time. Live speech is a 2s window and a 250ms hop again, with a 400ms tail held for the next hop. Audio already committed is still not rewritten. The 1.5s latency bar is still 2.2.
+- D54 2026-11-01: Live speech uses beam size 2 on one segment per 2s window, and drops a segment the model is unsure about. A profanity bleep colors only the word whose text matches the hit. The 1.5s latency bar is still 2.2.
 
 ## Open questions (for Jared)
 
