@@ -44,15 +44,20 @@ impl ParakeetRecognizer {
 
 #[cfg(feature = "parakeet")]
 fn load_model(model_dir: &std::path::Path) -> Result<parakeet_rs::ParakeetTDT, AsrError> {
+    let env = parakeet_rs::ort::init()
+        .build()
+        .map_err(|err| AsrError::ModelLoad(err.to_string()))?;
     #[cfg(feature = "cuda")]
     {
         let gpu = parakeet_rs::ExecutionConfig::new()
+            .with_environment(env.clone())
             .with_execution_provider(parakeet_rs::ExecutionProvider::Cuda);
         if let Ok(model) = parakeet_rs::ParakeetTDT::from_pretrained(model_dir, Some(gpu)) {
             return Ok(model);
         }
     }
-    parakeet_rs::ParakeetTDT::from_pretrained(model_dir, None)
+    let cpu = parakeet_rs::ExecutionConfig::new().with_environment(env);
+    parakeet_rs::ParakeetTDT::from_pretrained(model_dir, Some(cpu))
         .map_err(|err| AsrError::ModelLoad(err.to_string()))
 }
 
