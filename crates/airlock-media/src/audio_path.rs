@@ -250,12 +250,10 @@ fn resample_channel(input: Vec<f32>, from_hz: u32, to_hz: u32) -> Vec<f32> {
 
 fn f32le_to_samples(bytes: &[u8]) -> Vec<f32> {
     bytes
-        .chunks_exact(4)
-        .map(|chunk| {
-            let mut buf = [0u8; 4];
-            buf.copy_from_slice(chunk);
-            f32::from_le_bytes(buf)
-        })
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|chunk| f32::from_le_bytes(*chunk))
         .collect()
 }
 

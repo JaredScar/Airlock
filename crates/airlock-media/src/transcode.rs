@@ -175,11 +175,7 @@ fn video_info(path: &Path) -> Result<(u32, u32, u32), MediaError> {
             let (num, den) = value.split_once('/')?;
             let num: u32 = num.parse().ok()?;
             let den: u32 = den.parse().ok()?;
-            if den == 0 {
-                None
-            } else {
-                Some((num / den).max(1))
-            }
+            num.checked_div(den).map(|rate| rate.max(1))
         })
         .unwrap_or(30);
     Ok((width, height, rate))

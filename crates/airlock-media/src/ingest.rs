@@ -398,8 +398,10 @@ fn read_pcm(
 
 fn emit_pcm(bytes: &[u8], frames: &mut i64, clock: &mut PtsClock, on_pcm: &mut impl FnMut(Pcm)) {
     let samples: Vec<f32> = bytes
-        .chunks_exact(4)
-        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
         .collect();
     let start_us = frames.saturating_mul(1_000_000) / i64::from(STUDIO_RATE_HZ);
     let start = clock.stamp(start_us);
