@@ -2,13 +2,13 @@
 //! recognize speech on a 16 kHz copy, and ask the context judge when a Pro
 //! license is saved. Cloud speech is used only when the streamer opted in, a
 //! Pro license allows it, and a Deepgram key is in the keychain. Otherwise
-//! Whisper runs when the local model file is on disk.
+//! Parakeet runs when its model folder is on disk, and Whisper is the fallback.
 
 use crate::EVENT_CHANNEL;
 use airlock_asr::audio::{downmix_to_mono, has_speech_energy, resample_linear};
 use airlock_asr::{
-    ASR_SAMPLE_RATE, DeepgramConfig, DeepgramRecognizer, SpeechRecognizer, WhisperConfig,
-    WhisperRecognizer,
+    ASR_SAMPLE_RATE, DeepgramConfig, DeepgramRecognizer, ParakeetRecognizer, SpeechRecognizer,
+    WhisperConfig, WhisperRecognizer,
 };
 use airlock_core::{Dur, Platform, StallFallback, Ts};
 use airlock_llm::{AnthropicJudge, ContextJudge, JudgeRequest, OllamaJudge};
@@ -51,8 +51,11 @@ pub fn start(
         }
         let model = airlock_asr::runtime_speech_model(crate::detect_vram_mb());
         let model_path = dir.join("models").join(model.file_name());
-        let model_ready =
-            speech_key.is_some() || airlock_asr::file_matches(&model_path, model.sha256());
+        let parakeet_dir = dir.join("models").join(airlock_asr::PARAKEET_DIR);
+        let parakeet_on = airlock_asr::parakeet_ready(&parakeet_dir);
+        let model_ready = speech_key.is_some()
+            || parakeet_on
+            || airlock_asr::file_matches(&model_path, model.sha256());
         {
             let mut guard = match slot.lock() {
                 Ok(guard) => guard,
@@ -82,7 +85,8 @@ pub fn start(
             });
             let engine = match speech_key {
                 Some(key) => SpeechEngine::Cloud(key),
-                None => SpeechEngine::Local(model_path),
+                None if parakeet_on => SpeechEngine::Parakeet(parakeet_dir),
+                None => SpeechEngine::Whisper(model_path),
             };
             std::thread::spawn(move || {
                 recognize(app_asr, slot_asr, generation_asr, mine, engine, judge, rx);
@@ -236,7 +240,8 @@ struct LiveMedia {
 }
 
 enum SpeechEngine {
-    Local(std::path::PathBuf),
+    Whisper(std::path::PathBuf),
+    Parakeet(std::path::PathBuf),
     Cloud(String),
 }
 
@@ -260,7 +265,7 @@ fn recognize(
                 return;
             }
         },
-        SpeechEngine::Local(model_path) => {
+        SpeechEngine::Whisper(model_path) => {
             let config = WhisperConfig {
                 model_path,
                 use_gpu: cfg!(feature = "cuda"),
@@ -279,6 +284,13 @@ fn recognize(
                 }
             }
         }
+        SpeechEngine::Parakeet(model_dir) => match ParakeetRecognizer::new(model_dir) {
+            Ok(recognizer) => Box::new(recognizer),
+            Err(err) => {
+                report_recognizer_failure(&app, &slot, &err.to_string());
+                return;
+            }
+        },
     };
     while generation.load(Ordering::SeqCst) == mine {
         let Some((start, samples)) = next_speech(&rx) else {

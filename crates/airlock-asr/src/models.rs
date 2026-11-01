@@ -123,6 +123,61 @@ pub fn download_verified(
     Ok(())
 }
 
+pub const PARAKEET_DIR: &str = "parakeet-tdt-0.6b-v2";
+
+/// One file in the Parakeet TDT folder. The hash is the file's SHA-256.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModelFile {
+    pub name: &'static str,
+    pub url: &'static str,
+    pub sha256: &'static str,
+}
+
+/// English Parakeet TDT 0.6B v2, ONNX. The encoder weights sit beside the graph.
+pub fn parakeet_files() -> &'static [ModelFile] {
+    &[
+        ModelFile {
+            name: "encoder-model.onnx",
+            url: concat!(
+                "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/",
+                "encoder-model.onnx"
+            ),
+            sha256: "3987bcd28175d829d12888a996a84e8f62a0e374d9ffd640662c1515adc679d3",
+        },
+        ModelFile {
+            name: "encoder-model.onnx.data",
+            url: concat!(
+                "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/",
+                "encoder-model.onnx.data"
+            ),
+            sha256: "4dab7362d4874d85965045b1e41b2d61dd2cc0fb25671a7f6b3dc47bf120cc41",
+        },
+        ModelFile {
+            name: "decoder_joint-model.onnx",
+            url: concat!(
+                "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/",
+                "decoder_joint-model.onnx"
+            ),
+            sha256: "cbb52a07bd70ab5b67f8439d4b3cd8704b18467b4430bcacb5adabe154b8d191",
+        },
+        ModelFile {
+            name: "vocab.txt",
+            url: concat!(
+                "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/",
+                "vocab.txt"
+            ),
+            sha256: "ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d",
+        },
+    ]
+}
+
+/// True when every Parakeet file is present and its checksum matches.
+pub fn parakeet_ready(dir: &Path) -> bool {
+    parakeet_files()
+        .iter()
+        .all(|file| file_matches(&dir.join(file.name), file.sha256))
+}
+
 /// Model this build can actually run. A CPU build stays on `small.en` even when
 /// the GPU has room for a larger file, because that file would not keep up.
 pub fn runtime_speech_model(vram_mb: Option<u64>) -> SpeechModel {
@@ -182,6 +237,13 @@ mod tests {
             assert_eq!(model.sha256().len(), 64);
             assert!(model.url().starts_with("https://"));
             assert!(model.file_name().starts_with("ggml-"));
+        }
+        assert!(!parakeet_ready(Path::new("missing-parakeet-dir")));
+        assert_eq!(parakeet_files().len(), 4);
+        for file in parakeet_files() {
+            assert_eq!(file.sha256.len(), 64);
+            assert!(file.url.contains("parakeet-tdt-0.6b-v2-onnx"));
+            assert!(!file.name.is_empty());
         }
     }
 

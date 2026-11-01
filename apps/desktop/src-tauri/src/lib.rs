@@ -297,10 +297,44 @@ pub(crate) fn detect_vram_mb() -> Option<u64> {
     airlock_asr::parse_vram_mb(&String::from_utf8_lossy(&output.stdout))
 }
 
-/// Saves the VRAM-picked ggml file under the app data directory.
-/// The file is kept only after its checksum matches. Progress events are `model-progress`.
+/// Saves the speech model under the app data directory.
+/// The GPU build downloads Parakeet. A build without CUDA downloads Whisper.
+/// A file is kept only after its checksum matches. Progress events are `model-progress`.
 #[tauri::command]
 fn download_speech_model(app: AppHandle) -> Result<String, String> {
+    if cfg!(feature = "cuda") {
+        download_parakeet(app)
+    } else {
+        download_whisper(app)
+    }
+}
+
+fn download_parakeet(app: AppHandle) -> Result<String, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| err.to_string())?
+        .join("models")
+        .join(airlock_asr::PARAKEET_DIR);
+    std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
+    if airlock_asr::parakeet_ready(&dir) {
+        return Ok(airlock_asr::PARAKEET_DIR.to_string());
+    }
+    let handle = app.clone();
+    for file in airlock_asr::parakeet_files() {
+        let dest = dir.join(file.name);
+        if airlock_asr::file_matches(&dest, file.sha256) {
+            continue;
+        }
+        airlock_asr::download_verified(file.url, &dest, file.sha256, |received, total| {
+            let _ = handle.emit("model-progress", ModelProgress { received, total });
+        })
+        .map_err(|err| err.to_string())?;
+    }
+    Ok(airlock_asr::PARAKEET_DIR.to_string())
+}
+
+fn download_whisper(app: AppHandle) -> Result<String, String> {
     let model = airlock_asr::runtime_speech_model(detect_vram_mb());
     let dir = app
         .path()

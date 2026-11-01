@@ -7,6 +7,7 @@
 pub mod audio;
 pub mod deepgram;
 pub mod models;
+pub mod parakeet;
 pub mod scripted;
 pub mod vad;
 pub mod whisper;
@@ -16,9 +17,10 @@ use thiserror::Error;
 
 pub use deepgram::{DeepgramConfig, DeepgramRecognizer};
 pub use models::{
-    SpeechModel, download_verified, file_matches, parse_vram_mb, pick_speech_model,
-    runtime_speech_model, verify_sha256,
+    ModelFile, PARAKEET_DIR, SpeechModel, download_verified, file_matches, parakeet_files,
+    parakeet_ready, parse_vram_mb, pick_speech_model, runtime_speech_model, verify_sha256,
 };
+pub use parakeet::ParakeetRecognizer;
 pub use scripted::ScriptedRecognizer;
 pub use vad::{GatedRecognizer, VadGate};
 pub use whisper::{WhisperConfig, WhisperRecognizer};

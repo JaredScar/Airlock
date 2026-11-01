@@ -172,8 +172,12 @@ impl SampleWindow {
         Some((at, std::mem::take(&mut self.buf)))
     }
 
+    pub(crate) fn rate(&self) -> u32 {
+        self.rate
+    }
+
     /// Audio still waiting for a full window.
-    fn pending(&self) -> Option<(Ts, &[f32])> {
+    pub(crate) fn pending(&self) -> Option<(Ts, &[f32])> {
         if self.buf.is_empty() {
             return None;
         }
@@ -370,7 +374,7 @@ fn is_non_speech(text: &str) -> bool {
 
 /// A short phrase followed by a quiet tail. Transcribe it now instead of waiting
 /// for the window to fill.
-fn phrase_is_ready(audio: &[f32], rate: u32) -> bool {
+pub(crate) fn phrase_is_ready(audio: &[f32], rate: u32) -> bool {
     let tail = (rate as usize / 5).max(1);
     let min = rate as usize * 3 / 10;
     if audio.len() < min.max(tail + 1) {
