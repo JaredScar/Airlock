@@ -211,7 +211,7 @@ Video is passed through untouched (no re-encode).
 - D53 2026-11-01: The 5s beam-search window sat too close to air time. Live speech is a 2s window and a 250ms hop again, with a 400ms tail held for the next hop. Audio already committed is still not rewritten. The 1.5s latency bar is still 2.2.
 - D54 2026-11-01: Live speech uses beam size 2 on one segment per 2s window, and drops a segment the model is unsure about. A profanity bleep colors only the word whose text matches the hit. The 1.5s latency bar is still 2.2.
 - D55 2026-11-01: Whisper stops after the first phrase and skips the rest of the window. That remainder is decoded once when at least 0.8s is left. Time is sealed only through the last word written, so a later hop can still commit what the first phrase missed. The 1.5s latency bar is still 2.2.
-- D56 2026-11-01: The GPU build's local recognizer is Parakeet TDT 0.6B v2 (ONNX, CC-BY-4.0) when `models/parakeet-tdt-0.6b-v2` matches its pinned checksums. Whisper stays the fallback, and Deepgram stays the opt-in cloud path. `cargo test` does not compile Parakeet. The 1.5s latency bar is still 2.2.
+- D56 2026-11-01: The GPU build's local recognizer is Parakeet TDT 0.6B v2 (ONNX, CC-BY-4.0) when `models/parakeet-tdt-0.6b-v2` matches its pinned checksums. The ONNX Runtime CUDA provider is tried first and CPU is the fallback. This crate needs Rust 1.92. Whisper stays the fallback recognizer, and Deepgram stays the opt-in cloud path. `cargo test` does not compile Parakeet. The 1.5s latency bar is still 2.2.
 
 ## Open questions (for Jared)
 

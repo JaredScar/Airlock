@@ -43,9 +43,9 @@ impl ParakeetRecognizer {
 fn load_model(model_dir: &std::path::Path) -> Result<parakeet_rs::ParakeetTDT, AsrError> {
     #[cfg(feature = "cuda")]
     {
-        let config = parakeet_rs::ExecutionConfig::new()
+        let gpu = parakeet_rs::ExecutionConfig::new()
             .with_execution_provider(parakeet_rs::ExecutionProvider::Cuda);
-        if let Ok(model) = parakeet_rs::ParakeetTDT::from_pretrained(model_dir, Some(config)) {
+        if let Ok(model) = parakeet_rs::ParakeetTDT::from_pretrained(model_dir, Some(gpu)) {
             return Ok(model);
         }
     }
@@ -121,18 +121,28 @@ impl ParakeetRecognizer {
                     Some(parakeet_rs::TimestampMode::Words),
                 )
                 .map_err(|err| AsrError::Inference(err.to_string()))?;
-            let window_end = at + Dur((audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
+            let window_end =
+                at + Dur((audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
             let heard = result
                 .tokens
                 .into_iter()
-                .filter_map(|token| heard_from_token(token.text, token.start, token.end, at, window_end))
+                .filter_map(|token| {
+                    heard_from_token(token.text, token.start, token.end, at, window_end)
+                })
                 .collect();
             Ok(self.commit.push(heard, window_end, complete))
         }
     }
 }
 
-fn heard_from_token(text: String, start_s: f32, end_s: f32, origin: Ts, limit: Ts) -> Option<Heard> {
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
+fn heard_from_token(
+    text: String,
+    start_s: f32,
+    end_s: f32,
+    origin: Ts,
+    limit: Ts,
+) -> Option<Heard> {
     let text = text.trim().to_string();
     if normalize_word(&text).is_empty() {
         return None;
@@ -152,6 +162,7 @@ fn heard_from_token(text: String, start_s: f32, end_s: f32, origin: Ts, limit: T
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 struct Heard {
     text: String,
     start: Ts,
@@ -159,21 +170,26 @@ struct Heard {
 }
 
 #[derive(Debug, Default)]
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 struct WordCommit {
     committed_until: Ts,
     said: Vec<Said>,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 struct Said {
     norm: String,
     start: Ts,
     end: Ts,
 }
 
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 const TAIL_US: i64 = 400_000;
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 const REPEAT_GAP_US: i64 = 2_500_000;
 
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 impl WordCommit {
     fn push(&mut self, heard: Vec<Heard>, window_end: Ts, complete: bool) -> Vec<Word> {
         let stable_until = if complete {
@@ -227,10 +243,12 @@ impl WordCommit {
     }
 }
 
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 fn within_repeat(a0: Ts, a1: Ts, b0: Ts, b1: Ts) -> bool {
     b0.0 < a1.0 + REPEAT_GAP_US && b1.0 > a0.0 - REPEAT_GAP_US
 }
 
+#[cfg_attr(not(feature = "parakeet"), allow(dead_code))]
 fn normalize_word(text: &str) -> String {
     text.chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '\'')
@@ -284,17 +302,16 @@ mod tests {
     #[test]
     fn a_token_past_the_audio_is_dropped() {
         assert!(
-            heard_from_token(
-                "nope".into(),
-                3.0,
-                3.2,
-                Ts::ZERO,
-                Ts::from_millis(2_000)
-            )
-            .is_none()
+            heard_from_token("nope".into(), 3.0, 3.2, Ts::ZERO, Ts::from_millis(2_000)).is_none()
         );
-        let word = heard_from_token("yes".into(), 0.1, 0.4, Ts::from_millis(1_000), Ts::from_millis(3_000))
-            .expect("word");
+        let word = heard_from_token(
+            "yes".into(),
+            0.1,
+            0.4,
+            Ts::from_millis(1_000),
+            Ts::from_millis(3_000),
+        )
+        .expect("word");
         assert_eq!(word.text, "yes");
         assert_eq!(word.start, Ts::from_millis(1_100));
     }
