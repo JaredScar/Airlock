@@ -78,7 +78,7 @@ fn stall_warn_banners_without_muting() {
 fn a_connected_recognizer_says_it_is_listening() {
     let mut s = session(StallFallback::Warn, 1_000);
     s.note_recognizer(true);
-    advance(&mut s, 0, 1_500, true);
+    advance(&mut s, 0, 9_000, true);
     assert!(s.drain_events().iter().any(|e| matches!(
         e,
         UiEvent::AnalysisStall { active: true, message, .. } if message.contains("Listening")
@@ -122,6 +122,34 @@ fn stall_mute_covers_audio_after_the_last_word() {
         events
             .iter()
             .any(|e| matches!(e, UiEvent::AnalysisStall { active: false, .. }))
+    );
+}
+
+#[test]
+fn a_live_recognizer_does_not_stall_during_a_loud_pause() {
+    let mut s = session(StallFallback::Warn, 1_000);
+    s.note_recognizer(true);
+    s.on_live_time(Ts::from_millis(2_000));
+    s.on_words(vec![Word::new(
+        "hello",
+        Span::from_millis(1_800, 2_000),
+        0.9,
+    )]);
+    s.drain_events();
+    s.on_live_time(Ts::from_millis(12_000));
+    s.note_recognizer_progress(Ts::from_millis(11_500));
+    s.note_audio_energy(true);
+    assert!(
+        !s.drain_events()
+            .iter()
+            .any(|e| matches!(e, UiEvent::AnalysisStall { active: true, .. }))
+    );
+    s.on_live_time(Ts::from_millis(22_000));
+    s.note_audio_energy(true);
+    assert!(
+        s.drain_events()
+            .iter()
+            .any(|e| matches!(e, UiEvent::AnalysisStall { active: true, .. }))
     );
 }
 

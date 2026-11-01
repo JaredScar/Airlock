@@ -261,10 +261,12 @@ fn recognize(
             }
         },
         SpeechEngine::Local(model_path) => {
-            // This build has no CUDA toolkit, so the model runs on CPU.
             let config = WhisperConfig {
                 model_path,
-                use_gpu: false,
+                use_gpu: cfg!(feature = "cuda"),
+                // A 2s window finishes soon enough that words land inside the delay.
+                window_ms: 2_000,
+                hop_ms: 1_000,
                 ..WhisperConfig::default()
             };
             match WhisperRecognizer::new(config) {
@@ -277,11 +279,16 @@ fn recognize(
         }
     };
     while generation.load(Ordering::SeqCst) == mine {
-        let Ok((start, samples)) = rx.recv() else {
+        let Some((start, samples)) = next_speech(&rx) else {
             break;
         };
         if generation.load(Ordering::SeqCst) != mine {
             break;
+        }
+        let end = start + Dur((samples.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
+        note_recognizer_progress(&slot, end);
+        if samples.is_empty() {
+            continue;
         }
         match recognizer.push(&samples, start) {
             Ok(words) => deliver_words(&app, &slot, words, judge.as_ref()),
@@ -294,6 +301,54 @@ fn recognize(
     if let Ok(words) = recognizer.flush() {
         deliver_words(&app, &slot, words, judge.as_ref());
     }
+}
+
+fn note_recognizer_progress(slot: &Mutex<Option<Session>>, at: Ts) {
+    let Ok(mut guard) = slot.lock() else {
+        return;
+    };
+    let Some(session) = guard.as_mut() else {
+        return;
+    };
+    session.note_recognizer_progress(at);
+}
+
+/// Takes the next audio, plus anything already queued. Audio older than seven
+/// seconds has reached the delay, so only the newer part is transcribed.
+fn next_speech(rx: &std::sync::mpsc::Receiver<(Ts, Vec<f32>)>) -> Option<(Ts, Vec<f32>)> {
+    let first = rx.recv().ok()?;
+    let mut parts = vec![first];
+    while let Ok(more) = rx.try_recv() {
+        parts.push(more);
+    }
+    let (last_at, last_samples) = parts.last()?;
+    let last_end = *last_at + sample_dur(last_samples.len());
+    let keep = last_end - Dur::from_millis(7_000);
+    let mut start = None;
+    let mut samples = Vec::new();
+    for (at, chunk) in parts {
+        if at + sample_dur(chunk.len()) <= keep {
+            continue;
+        }
+        if start.is_none() {
+            let drop_n = if at < keep {
+                ((keep.0 - at.0).max(0) * i64::from(ASR_SAMPLE_RATE) / 1_000_000) as usize
+            } else {
+                0
+            };
+            start = Some(at.max(keep));
+            if drop_n < chunk.len() {
+                samples.extend_from_slice(&chunk[drop_n..]);
+            }
+            continue;
+        }
+        samples.extend_from_slice(&chunk);
+    }
+    Some((start.unwrap_or(last_end), samples))
+}
+
+fn sample_dur(n: usize) -> Dur {
+    Dur((n as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE))
 }
 
 fn deliver_words(

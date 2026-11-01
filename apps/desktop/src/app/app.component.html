@@ -86,7 +86,7 @@
 }
 
 @if (al.stall(); as stall) {
-  <div class="banner bad" role="alert">{{ stall }}</div>
+  <div class="banner bad" role="status">{{ stall }}</div>
 }
 
 @if (al.error(); as err) {
@@ -164,7 +164,7 @@
       </p>
     </header>
     <div class="scroll words">
-      @for (w of al.words(); track w.span.start) {
+      @for (w of al.words(); track $index) {
         <span class="w" [class]="'w ' + wordState(w)">{{ w.text }}</span>
       } @empty {
         <div class="empty">

@@ -1,15 +1,8 @@
-//! Local Whisper. The 3s/1s sample window and LocalAgreement commit are implemented.
-//! The desktop app builds this behind the `whisper` feature. `cargo test` does not,
-//! so a machine without libclang can still test the engine.
+//! Local Whisper. The desktop app builds this behind the `whisper` feature.
 //!
-//! Plan (PLAN.md Phase 2):
-//! - Add `whisper-rs` as an optional dependency behind a `whisper` feature (`cuda` sub-feature).
-//! - Streaming strategy: sliding window (~3s window, ~1s hop), `token_timestamps = true`,
-//!   commit words only once they've appeared stable in two consecutive windows
-//!   ("LocalAgreement-2"), so we never emit a word twice or retract one.
-//! - Target: words finalized <= 1.5s after spoken on an RTX-class GPU with `large-v3-turbo`
-//!   or `distil-large-v3`; fall back to `small.en` on CPU.
-//! - Word-timestamp error is ~50–150ms; policy padding absorbs it.
+//! A word is committed on the first window so it can show during the delay.
+//! The next overlapping window does not write that word again. Non-speech
+//! markers such as `[BLANK_AUDIO]` are dropped.
 
 use crate::{ASR_SAMPLE_RATE, AsrError, SpeechRecognizer};
 use airlock_core::{Dur, Span, Ts, Word};
@@ -45,7 +38,6 @@ impl WhisperConfig {
 pub struct WhisperRecognizer {
     window: SampleWindow,
     agreement: WordAgreement,
-    quiet_left: u32,
     #[cfg(feature = "whisper")]
     state: whisper_rs::WhisperState,
     #[cfg(feature = "whisper")]
@@ -79,11 +71,10 @@ impl WhisperRecognizer {
             let threads = std::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(4);
-            let threads = threads.saturating_sub(2).clamp(2, 8) as i32;
+            let threads = threads.saturating_sub(2).clamp(4, 12) as i32;
             Ok(WhisperRecognizer {
                 window: config.window(),
                 agreement: WordAgreement::default(),
-                quiet_left: 0,
                 state,
                 language: config.language,
                 threads,
@@ -141,6 +132,23 @@ impl SampleWindow {
         ready
     }
 
+    /// The next chunk jumped forward. The samples in between were already too
+    /// late to bleep, so the window starts again at `start`.
+    pub fn is_gap(&self, start: Ts) -> bool {
+        let Some(origin) = self.origin else {
+            return false;
+        };
+        let consumed = self.hopped + self.buf.len();
+        let expected = origin + Dur((consumed as i64) * 1_000_000 / self.rate as i64);
+        start.0 > expected.0 + 200_000
+    }
+
+    pub fn reset(&mut self) {
+        self.buf.clear();
+        self.origin = None;
+        self.hopped = 0;
+    }
+
     /// The samples that have not yet filled a window, including the overlap.
     pub fn finish(&mut self) -> Option<(Ts, Vec<f32>)> {
         if self.buf.is_empty() {
@@ -167,63 +175,59 @@ struct Heard {
     confidence: f32,
 }
 
-/// Commits a word after a later window hears the same text at about the same time.
+/// Commits a word once. A later window that hears the same word again does not
+/// add a second copy while the two spans still overlap.
 #[derive(Debug, Default)]
 struct WordAgreement {
     previous: Vec<Heard>,
     committed_until: Ts,
+    said: Vec<(String, Ts, Ts)>,
 }
 
 #[cfg_attr(not(feature = "whisper"), allow(dead_code))]
 impl WordAgreement {
-    fn push(&mut self, heard: Vec<Heard>) -> Vec<Word> {
+    fn push(&mut self, heard: Vec<Heard>, _window_start: Ts) -> Vec<Word> {
         let mut out = Vec::new();
         for word in &heard {
-            if word.end <= self.committed_until {
-                continue;
-            }
-            let agreed = self.previous.iter().any(|prev| {
-                same_word(&prev.text, &word.text) && (prev.start.0 - word.start.0).abs() <= 400_000
-            });
-            if !agreed {
-                continue;
-            }
-            let text = word.text.trim();
-            if text.is_empty() {
-                continue;
-            }
-            out.push(Word::new(
-                text,
-                Span::new(word.start, word.end),
-                word.confidence,
-            ));
-            self.committed_until = word.end;
+            self.commit_heard(word, &mut out);
         }
-        self.previous = heard;
         out
+    }
+
+    fn commit_heard(&mut self, word: &Heard, out: &mut Vec<Word>) {
+        let text = word.text.trim();
+        if text.is_empty() || is_non_speech(text) {
+            return;
+        }
+        let norm = normalize_word(text);
+        let overlaps = self.said.iter().any(|(prev, start, end)| {
+            prev == &norm && word.start.0 < end.0 + 300_000 && word.end.0 > start.0 - 300_000
+        });
+        self.committed_until = self.committed_until.max(word.end);
+        if overlaps {
+            return;
+        }
+        self.said
+            .retain(|(_, _, end)| word.end.0.saturating_sub(end.0) < 30_000_000);
+        self.said.push((norm, word.start, word.end));
+        out.push(Word::new(
+            text,
+            Span::new(word.start, word.end),
+            word.confidence,
+        ));
     }
 
     fn flush(&mut self) -> Vec<Word> {
         let pending = std::mem::take(&mut self.previous);
-        pending
-            .into_iter()
-            .filter(|word| word.end > self.committed_until && !word.text.trim().is_empty())
-            .map(|word| {
-                Word::new(
-                    word.text.trim(),
-                    Span::new(word.start, word.end),
-                    word.confidence,
-                )
-            })
-            .collect()
+        let mut out = Vec::new();
+        for word in pending {
+            if word.end <= self.committed_until {
+                continue;
+            }
+            self.commit_heard(&word, &mut out);
+        }
+        out
     }
-}
-
-#[cfg_attr(not(feature = "whisper"), allow(dead_code))]
-fn same_word(left: &str, right: &str) -> bool {
-    let left = normalize_word(left);
-    let right = normalize_word(right);
-    !left.is_empty() && left == right
 }
 
 #[cfg_attr(not(feature = "whisper"), allow(dead_code))]
@@ -232,6 +236,20 @@ fn normalize_word(text: &str) -> String {
         .filter(|c| c.is_ascii_alphanumeric() || *c == '\'')
         .flat_map(|c| c.to_lowercase())
         .collect()
+}
+
+#[cfg_attr(not(feature = "whisper"), allow(dead_code))]
+fn is_non_speech(text: &str) -> bool {
+    let norm = normalize_word(text);
+    if norm.is_empty() || norm == "blankaudio" {
+        return true;
+    }
+    let marked = text.contains('[') || text.contains('(') || text.contains('♪');
+    marked
+        && matches!(
+            norm.as_str(),
+            "music" | "noise" | "silence" | "applause" | "laughter"
+        )
 }
 
 impl LocalAgreement {
@@ -255,17 +273,16 @@ impl SpeechRecognizer for WhisperRecognizer {
     }
 
     fn push(&mut self, samples: &[f32], start: Ts) -> Result<Vec<Word>, AsrError> {
-        let ready = self.window.push(samples, start);
         let mut out = Vec::new();
+        if self.window.is_gap(start) {
+            out.extend(self.agreement.flush());
+            self.window.reset();
+        }
+        let ready = self.window.push(samples, start);
         for (at, audio) in ready {
-            if !crate::audio::has_speech_energy(&audio) {
-                if self.quiet_left == 0 {
-                    self.agreement.previous.clear();
-                    continue;
-                }
-                self.quiet_left -= 1;
-            } else {
-                self.quiet_left = 1;
+            if crate::audio::is_near_silence(&audio) {
+                out.extend(self.agreement.flush());
+                continue;
             }
             out.extend(self.transcribe(&audio, at)?);
         }
@@ -322,7 +339,7 @@ impl WhisperRecognizer {
             .full(params, &samples)
             .map_err(|err| AsrError::Inference(err.to_string()))?;
         let heard = words_from_state(&self.state, at, audio.len());
-        Ok(self.agreement.push(heard))
+        Ok(self.agreement.push(heard, at))
     }
 }
 
@@ -447,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn a_word_is_kept_only_after_the_next_window_agrees() {
+    fn a_word_shows_on_the_first_window_and_an_overlap_is_not_repeated() {
         let mut agree = WordAgreement::default();
         let heard = |text: &str, start_ms: i64| Heard {
             text: text.into(),
@@ -455,27 +472,30 @@ mod tests {
             end: Ts::from_millis(start_ms + 300),
             confidence: 0.8,
         };
-        assert!(
-            agree
-                .push(vec![heard("Hello,", 100), heard("there", 500)])
-                .is_empty()
-        );
-        let committed = agree.push(vec![
-            heard("hello", 140),
-            heard("there", 520),
-            heard("friend", 2_000),
-        ]);
+        let first = agree.push(vec![heard("Hello,", 100), heard("there", 500)], Ts::ZERO);
         assert_eq!(
-            committed
+            first
                 .iter()
                 .map(|word| word.text.as_str())
                 .collect::<Vec<_>>(),
-            vec!["hello", "there"]
+            vec!["Hello,", "there"]
         );
-        assert!(
-            agree
-                .push(vec![heard("hello", 140), heard("there", 520)])
-                .is_empty()
+        let overlap = agree.push(
+            vec![
+                heard("hello", 140),
+                heard("there", 520),
+                heard("friend", 2_000),
+            ],
+            Ts::from_millis(1_000),
         );
+        assert_eq!(
+            overlap
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["friend"]
+        );
+        let marker = agree.push(vec![heard("[BLANK_AUDIO]", 4_000)], Ts::from_millis(3_000));
+        assert!(marker.iter().all(|word| !word.text.contains("BLANK")));
     }
 }

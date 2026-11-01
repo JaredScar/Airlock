@@ -134,6 +134,8 @@ pub struct Session {
     /// shrinking it would jump the playhead forward and skip audio.
     extra_delay: Dur,
     last_word_at: Option<Ts>,
+    /// Media time of the newest audio the recognizer has accepted.
+    recognizer_audio: Option<Ts>,
     /// True once Go live has a recognizer loading or running.
     recognizer_ready: bool,
     stall_latched: bool,
@@ -162,6 +164,7 @@ impl Session {
             ramp: DelayRamp::new(cfg.policy.delay()),
             extra_delay: Dur::ZERO,
             last_word_at: None,
+            recognizer_audio: None,
             recognizer_ready: false,
             stall_latched: false,
             safe_mode: false,
@@ -362,12 +365,37 @@ impl Session {
         }
     }
 
+    /// The recognizer has accepted program audio through `at`, even if that
+    /// audio produced no words. A loud game mix is not a stall while this
+    /// keeps up with the live edge.
+    pub fn note_recognizer_progress(&mut self, at: Ts) {
+        self.recognizer_audio = Some(self.recognizer_audio.map(|t| t.max(at)).unwrap_or(at));
+    }
+
     /// Call after `on_live_time` when a chunk of program audio has been measured.
     /// `energetic` should come from `airlock_asr::audio::has_speech_energy`.
     pub fn note_audio_energy(&mut self, energetic: bool) {
-        let limit = Dur::from_millis(self.cfg.policy.stall_after_ms);
-        let since_words = self.live - self.last_word_at.unwrap_or(Ts::ZERO);
-        let stalled = energetic && self.live > Ts::ZERO && since_words >= limit;
+        let analyzed = if self.recognizer_ready {
+            self.recognizer_audio
+                .or(self.last_word_at)
+                .unwrap_or(Ts::ZERO)
+        } else {
+            self.last_word_at.unwrap_or(Ts::ZERO)
+        };
+        let since = self.live - analyzed;
+        let limit = if self.recognizer_ready {
+            self.hold()
+                .max(Dur::from_millis(self.cfg.policy.stall_after_ms))
+        } else {
+            Dur::from_millis(self.cfg.policy.stall_after_ms)
+        };
+        let behind = self.live > Ts::ZERO && since >= limit;
+        // A quiet blip must not clear a real stall and immediately raise it again.
+        let stalled = if self.stall_latched {
+            behind
+        } else {
+            energetic && behind
+        };
         if !stalled {
             self.clear_stall();
             return;
@@ -417,7 +445,7 @@ impl Session {
     fn stall_message(&self) -> String {
         if self.last_word_at.is_none() {
             if self.recognizer_ready {
-                return "Listening. Words show up after a short phrase has been heard twice."
+                return "Listening. Words show up a couple of seconds after they are spoken."
                     .into();
             }
             return "Speech recognition is not connected yet. Download the speech model in Settings, then go live again.".into();

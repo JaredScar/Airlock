@@ -7,3 +7,12 @@ TS_RS_LARGE_INT = "number"
 # whisper-rs bindgen loads libclang from here. This is the local LLVM unpack on
 # the Windows dev machine. A build without the whisper feature never reads it.
 LIBCLANG_PATH = "C:\\Users\\Axeex\\AppData\\Local\\llvm-18\\clang+llvm-18.1.8-x86_64-pc-windows-msvc\\bin"
+# whisper-rs reads CUDA_PATH while linking the cuda feature. The installer
+# writes the toolkit to this versioned directory and does not replace the driver.
+CUDA_PATH = "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.8"
+# MSBuild's CUDA 12.8 targets read this, not CUDA_PATH.
+CUDA_PATH_V12_8 = "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.8"
+CMAKE_PROJECT_TOP_LEVEL_INCLUDES = { value = "crates/airlock-asr/cuda-arches.cmake", relative = true }
+# CUDA 12.8's Visual Studio integration is installed for VS 2022. The default
+# generator on this machine is VS 2026, which cannot see that toolset.
+CMAKE_GENERATOR = "Visual Studio 17 2022"

@@ -45,6 +45,20 @@ pub fn has_speech_energy(samples: &[f32]) -> bool {
     mean_sq.sqrt() >= 0.01
 }
 
+/// True for digital silence. Quiet speech is still audible. Whisper uses this so a
+/// soft voice is transcribed; the stall banner keeps the louder `has_speech_energy` bar.
+pub fn is_near_silence(samples: &[f32]) -> bool {
+    if samples.is_empty() {
+        return true;
+    }
+    let mean_sq = samples
+        .iter()
+        .map(|s| f64::from(*s) * f64::from(*s))
+        .sum::<f64>()
+        / samples.len() as f64;
+    mean_sq.sqrt() < 0.001
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
