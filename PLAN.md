@@ -203,6 +203,7 @@ Video is passed through untouched (no re-encode).
 - D45 2026-10-31: Go live asks the context judge after Whisper commits words, on its own thread, when the saved license allows Pro. Consent on uses the cloud judge and the keychain key. Otherwise it uses Ollama at `127.0.0.1:11434` with `qwen3:8b`. A missed judge leaves the word-list bleeps in place. The request is dropped when a newer one has already started.
 - D46 2026-10-31: Cloud speech is Deepgram's live listen socket (`nova-3`, linear16, 16 kHz). The key is the keychain account `airlock/deepgram` and is sent only as an `Authorization` header. Consent defaults off. `Feature::CloudSpeech` is Pro. Without consent, a license, or a key, Go live keeps the local Whisper model. Interim results are ignored. A word time that falls inside the current message is added to that message's start so the timestamp stays on the media clock.
 - D47 2026-11-01: GPU speech is the desktop `cuda` feature. The NSIS installer installs CUDA toolkit 12.8 (nvcc, runtime, cuBLAS, nvJitLink) when `cudart64_12.dll` is missing, and does not install a display driver. Kernels are compiled for compute capability 12.0. The runtime DLLs are copied beside the executable. `cargo test` does not enable the feature. The 1.5s latency bar is still 2.2.
+- D48 2026-11-01: GPU speech uses a 1s window and a 250ms hop. A phrase followed by a quiet tail is transcribed before that window fills. Decoding runs once per window (temperature fallback off). The 1.5s latency bar is still 2.2.
 
 ## Open questions (for Jared)
 

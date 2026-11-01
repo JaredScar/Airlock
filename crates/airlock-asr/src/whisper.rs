@@ -38,6 +38,8 @@ impl WhisperConfig {
 pub struct WhisperRecognizer {
     window: SampleWindow,
     agreement: WordAgreement,
+    /// The open phrase was already transcribed when speech paused.
+    phrase_sent: bool,
     #[cfg(feature = "whisper")]
     state: whisper_rs::WhisperState,
     #[cfg(feature = "whisper")]
@@ -68,13 +70,18 @@ impl WhisperRecognizer {
             let state = ctx
                 .create_state()
                 .map_err(|err| AsrError::ModelLoad(err.to_string()))?;
-            let threads = std::thread::available_parallelism()
-                .map(|n| n.get())
-                .unwrap_or(4);
-            let threads = threads.saturating_sub(2).clamp(4, 12) as i32;
+            let threads = if config.use_gpu {
+                4
+            } else {
+                let threads = std::thread::available_parallelism()
+                    .map(|n| n.get())
+                    .unwrap_or(4);
+                threads.saturating_sub(2).clamp(4, 12) as i32
+            };
             Ok(WhisperRecognizer {
                 window: config.window(),
                 agreement: WordAgreement::default(),
+                phrase_sent: false,
                 state,
                 language: config.language,
                 threads,
@@ -158,6 +165,16 @@ impl SampleWindow {
         let at = self.origin.unwrap_or(Ts::ZERO) + elapsed;
         Some((at, std::mem::take(&mut self.buf)))
     }
+
+    /// Audio still waiting for a full window.
+    fn pending(&self) -> Option<(Ts, &[f32])> {
+        if self.buf.is_empty() {
+            return None;
+        }
+        let elapsed = Dur((self.hopped as i64) * 1_000_000 / self.rate as i64);
+        let at = self.origin.unwrap_or(Ts::ZERO) + elapsed;
+        Some((at, &self.buf))
+    }
 }
 
 /// Commits a word only after the same text appears at the start of two windows.
@@ -201,7 +218,7 @@ impl WordAgreement {
         }
         let norm = normalize_word(text);
         let overlaps = self.said.iter().any(|(prev, start, end)| {
-            prev == &norm && word.start.0 < end.0 + 300_000 && word.end.0 > start.0 - 300_000
+            prev == &norm && word.start.0 < end.0 + 600_000 && word.end.0 > start.0 - 600_000
         });
         self.committed_until = self.committed_until.max(word.end);
         if overlaps {
@@ -252,6 +269,19 @@ fn is_non_speech(text: &str) -> bool {
         )
 }
 
+/// A short phrase followed by a quiet tail. Transcribe it now instead of waiting
+/// for the window to fill.
+fn phrase_is_ready(audio: &[f32], rate: u32) -> bool {
+    let tail = (rate as usize / 5).max(1);
+    let min = rate as usize * 3 / 10;
+    if audio.len() < min.max(tail + 1) {
+        return false;
+    }
+    let split = audio.len() - tail;
+    crate::audio::is_near_silence(&audio[split..])
+        && !crate::audio::is_near_silence(&audio[..split])
+}
+
 impl LocalAgreement {
     pub fn commit(&mut self, hypothesis: &[impl AsRef<str>]) -> Vec<String> {
         let current: Vec<String> = hypothesis.iter().map(|s| s.as_ref().to_string()).collect();
@@ -274,9 +304,13 @@ impl SpeechRecognizer for WhisperRecognizer {
 
     fn push(&mut self, samples: &[f32], start: Ts) -> Result<Vec<Word>, AsrError> {
         let mut out = Vec::new();
+        if !crate::audio::is_near_silence(samples) {
+            self.phrase_sent = false;
+        }
         if self.window.is_gap(start) {
             out.extend(self.agreement.flush());
             self.window.reset();
+            self.phrase_sent = false;
         }
         let ready = self.window.push(samples, start);
         for (at, audio) in ready {
@@ -284,7 +318,19 @@ impl SpeechRecognizer for WhisperRecognizer {
                 out.extend(self.agreement.flush());
                 continue;
             }
+            self.phrase_sent = true;
             out.extend(self.transcribe(&audio, at)?);
+        }
+        if !self.phrase_sent {
+            let rate = self.window.rate;
+            let early = self
+                .window
+                .pending()
+                .and_then(|(at, audio)| phrase_is_ready(audio, rate).then(|| (at, audio.to_vec())));
+            if let Some((at, audio)) = early {
+                self.phrase_sent = true;
+                out.extend(self.transcribe(&audio, at)?);
+            }
         }
         Ok(out)
     }
@@ -331,7 +377,11 @@ impl WhisperRecognizer {
         params.set_print_timestamps(false);
         params.set_single_segment(false);
         params.set_suppress_blank(true);
+        params.set_suppress_nst(true);
         params.set_token_timestamps(true);
+        params.set_temperature(0.0);
+        params.set_temperature_inc(0.0);
+        params.set_max_tokens(48);
         if let Some(language) = self.language.as_deref() {
             params.set_language(Some(language));
         }
@@ -497,5 +547,15 @@ mod tests {
         );
         let marker = agree.push(vec![heard("[BLANK_AUDIO]", 4_000)], Ts::from_millis(3_000));
         assert!(marker.iter().all(|word| !word.text.contains("BLANK")));
+    }
+
+    #[test]
+    fn a_pause_is_ready_before_the_window_fills() {
+        let rate = 16_000u32;
+        let mut audio = vec![0.2; 8_000];
+        audio.extend(std::iter::repeat_n(0.0, 3_200));
+        assert!(phrase_is_ready(&audio, rate));
+        assert!(!phrase_is_ready(&vec![0.2; 8_000], rate));
+        assert!(!phrase_is_ready(&vec![0.0; 16_000], rate));
     }
 }

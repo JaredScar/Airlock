@@ -165,7 +165,7 @@
     </header>
     <div class="scroll words">
       @for (w of al.words(); track $index) {
-        <span class="w" [class]="'w ' + wordState(w)">{{ w.text }}</span>
+        <span class="w" [class]="'w ' + wordState($index)">{{ w.text }}</span>
       } @empty {
         <div class="empty">
           <b>Waiting for speech</b>

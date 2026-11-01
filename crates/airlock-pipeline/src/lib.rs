@@ -445,8 +445,7 @@ impl Session {
     fn stall_message(&self) -> String {
         if self.last_word_at.is_none() {
             if self.recognizer_ready {
-                return "Listening. Words show up a couple of seconds after they are spoken."
-                    .into();
+                return "Listening. Words show up about a second after they are spoken.".into();
             }
             return "Speech recognition is not connected yet. Download the speech model in Settings, then go live again.".into();
         }

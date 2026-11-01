@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { AirlockService, IncidentFormat, inDesktopShell } from './airlock.service';
-import { CATEGORY_LABEL, Redaction, Word, isActive } from './airlock.types';
+import { CATEGORY_LABEL, Redaction, isActive, transcriptStates } from './airlock.types';
 import { SettingsComponent } from './settings.component';
 import { StudioService } from './studio.service';
 
@@ -173,18 +173,13 @@ export class AppComponent {
     return r.span.start <= this.al.playhead() && r.span.end > this.al.playhead();
   }
 
+  readonly transcriptState = computed(() =>
+    transcriptStates(this.al.words(), this.al.playhead(), this.al.upcoming(), this.al.aired()),
+  );
+
   /** Word state for the transcript: flagged words are highlighted by their redaction. */
-  wordState(w: Word): string {
-    // Count a word as covered only if most of it is, so time padding doesn't mark neighbors.
-    const overlaps = (r: Redaction) => {
-      if (r.target.kind !== 'audio') return false;
-      const covered = Math.min(r.span.end, w.span.end) - Math.max(r.span.start, w.span.start);
-      return covered >= (w.span.end - w.span.start) / 2;
-    };
-    const aired = w.span.end <= this.al.playhead();
-    const hit = this.al.upcoming().find(overlaps) ?? this.al.aired().find(overlaps);
-    const state = hit ? (isActive(hit) ? 'redacted' : 'flagged') : aired ? 'aired' : 'held';
-    return hit && aired ? `${state} aired` : state;
+  wordState(index: number): string {
+    return this.transcriptState()[index] ?? 'held';
   }
 
   formatTs(us: number): string {

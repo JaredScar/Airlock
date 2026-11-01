@@ -45,3 +45,29 @@ export function isActive(r: Redaction): boolean {
   if (r.mode === 'suggest') return r.status === 'approved';
   return false;
 }
+
+/**
+ * Transcript colors in reading order. A word changes when it starts to air,
+ * and never before the word in front of it, even if its timestamp is earlier.
+ */
+export function transcriptStates(
+  words: { text: string; span: { start: number; end: number } }[],
+  playhead: number,
+  upcoming: Redaction[],
+  aired: Redaction[],
+): string[] {
+  let cursor = 0;
+  return words.map((word) => {
+    cursor = Math.max(cursor, word.span.start);
+    const hasAired = cursor <= playhead;
+    const overlaps = (redaction: Redaction) => {
+      if (redaction.target.kind !== 'audio') return false;
+      const covered =
+        Math.min(redaction.span.end, word.span.end) - Math.max(redaction.span.start, word.span.start);
+      return covered >= (word.span.end - word.span.start) / 2;
+    };
+    const hit = upcoming.find(overlaps) ?? aired.find(overlaps);
+    const state = hit ? (isActive(hit) ? 'redacted' : 'flagged') : hasAired ? 'aired' : 'held';
+    return hit && hasAired ? `${state} aired` : state;
+  });
+}
