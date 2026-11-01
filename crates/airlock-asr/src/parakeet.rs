@@ -9,6 +9,9 @@ use crate::{ASR_SAMPLE_RATE, AsrError, SpeechRecognizer};
 use airlock_core::{Dur, Span, Ts, Word};
 use std::path::PathBuf;
 
+#[cfg(feature = "parakeet")]
+use parakeet_rs::Transcriber;
+
 pub struct ParakeetRecognizer {
     window: SampleWindow,
     commit: WordCommit,
