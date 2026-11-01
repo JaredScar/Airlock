@@ -227,6 +227,24 @@ export class AirlockService {
       case 'transcript':
         this.words.update((w) => [...w, ...ev.words].slice(-TRANSCRIPT_KEEP));
         break;
+      case 'transcript_revised':
+        this.words.update((list) => {
+          const kept = list.filter(
+            (word) =>
+              !ev.replaced.some((span) => span.start === word.span.start && span.end === word.span.end),
+          );
+          return [...kept, ...ev.words]
+            .sort((a, b) => a.span.start - b.span.start)
+            .slice(-TRANSCRIPT_KEEP);
+        });
+        break;
+      case 'redaction_removed':
+        this.pending.update((m) => {
+          const next = new Map(m);
+          next.delete(ev.id);
+          return next;
+        });
+        break;
       case 'redaction_upserted':
         this.pending.update((m) => new Map(m).set(ev.redaction.id, ev.redaction));
         break;

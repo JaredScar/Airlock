@@ -62,9 +62,11 @@ export function transcriptStates(
     const hasAired = cursor <= playhead;
     const overlaps = (redaction: Redaction) => {
       if (redaction.target.kind !== 'audio') return false;
+      const mid = word.span.start + (word.span.end - word.span.start) / 2;
+      const coversMid = mid >= redaction.span.start && mid < redaction.span.end;
       const covered =
         Math.min(redaction.span.end, word.span.end) - Math.max(redaction.span.start, word.span.start);
-      return covered >= (word.span.end - word.span.start) / 2;
+      return coversMid && covered >= (word.span.end - word.span.start) / 2;
     };
     const hit = upcoming.find(overlaps) ?? aired.find(overlaps);
     const state = hit ? (isActive(hit) ? 'redacted' : 'flagged') : hasAired ? 'aired' : 'held';

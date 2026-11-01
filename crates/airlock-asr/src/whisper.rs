@@ -1,8 +1,9 @@
 //! Local Whisper. The desktop app builds this behind the `whisper` feature.
 //!
 //! A word is committed on the first window so it can show during the delay.
-//! The next overlapping window does not write that word again. Non-speech
-//! markers such as `[BLANK_AUDIO]` are dropped.
+//! A later window can replace that word when it hears the same moment differently.
+//! The same word is not written twice. A very unsure guess is dropped.
+//! Non-speech markers such as `[BLANK_AUDIO]` are dropped.
 
 use crate::{ASR_SAMPLE_RATE, AsrError, SpeechRecognizer};
 use airlock_core::{Dur, Span, Ts, Word};
@@ -40,6 +41,8 @@ pub struct WhisperRecognizer {
     agreement: WordAgreement,
     /// The open phrase was already transcribed when speech paused.
     phrase_sent: bool,
+    /// The first second of this buffer already produced a guess.
+    early_sent: bool,
     #[cfg(feature = "whisper")]
     state: whisper_rs::WhisperState,
     #[cfg(feature = "whisper")]
@@ -82,6 +85,7 @@ impl WhisperRecognizer {
                 window: config.window(),
                 agreement: WordAgreement::default(),
                 phrase_sent: false,
+                early_sent: false,
                 state,
                 language: config.language,
                 threads,
@@ -166,6 +170,11 @@ impl SampleWindow {
         Some((at, std::mem::take(&mut self.buf)))
     }
 
+    /// No full window has been emitted from this buffer yet.
+    fn awaiting_first_window(&self) -> bool {
+        self.hopped == 0
+    }
+
     /// Audio still waiting for a full window.
     fn pending(&self) -> Option<(Ts, &[f32])> {
         if self.buf.is_empty() {
@@ -192,13 +201,21 @@ struct Heard {
     confidence: f32,
 }
 
-/// Commits a word once. A later window that hears the same word again does not
-/// add a second copy while the two spans still overlap.
+/// Commits a word once. The same word in a later window is not written again.
+/// A different word on that same time replaces it when the new guess is not worse.
 #[derive(Debug, Default)]
 struct WordAgreement {
     previous: Vec<Heard>,
     committed_until: Ts,
-    said: Vec<(String, Ts, Ts)>,
+    said: Vec<Said>,
+}
+
+#[derive(Debug, Clone)]
+struct Said {
+    norm: String,
+    start: Ts,
+    end: Ts,
+    confidence: f32,
 }
 
 #[cfg_attr(not(feature = "whisper"), allow(dead_code))]
@@ -213,20 +230,43 @@ impl WordAgreement {
 
     fn commit_heard(&mut self, word: &Heard, out: &mut Vec<Word>) {
         let text = word.text.trim();
-        if text.is_empty() || is_non_speech(text) {
+        if text.is_empty() || is_non_speech(text) || word.confidence < MIN_WORD_CONFIDENCE {
             return;
         }
         let norm = normalize_word(text);
-        let overlaps = self.said.iter().any(|(prev, start, end)| {
-            prev == &norm && word.start.0 < end.0 + 600_000 && word.end.0 > start.0 - 600_000
-        });
         self.committed_until = self.committed_until.max(word.end);
-        if overlaps {
-            return;
-        }
         self.said
-            .retain(|(_, _, end)| word.end.0.saturating_sub(end.0) < 30_000_000);
-        self.said.push((norm, word.start, word.end));
+            .retain(|prev| word.end.0.saturating_sub(prev.end.0) < 30_000_000);
+        let hits: Vec<usize> = self
+            .said
+            .iter()
+            .enumerate()
+            .filter(|(_, prev)| {
+                times_overlap(prev.start, prev.end, word.start, word.end)
+                    || (prev.norm == norm
+                        && within_repeat(prev.start, prev.end, word.start, word.end))
+            })
+            .map(|(idx, _)| idx)
+            .collect();
+        if !hits.is_empty() {
+            let same = hits.iter().all(|idx| self.said[*idx].norm == norm);
+            let best = hits
+                .iter()
+                .map(|idx| self.said[*idx].confidence)
+                .fold(0.0_f32, f32::max);
+            if same || word.confidence + 0.1 < best {
+                return;
+            }
+            for idx in hits.into_iter().rev() {
+                self.said.remove(idx);
+            }
+        }
+        self.said.push(Said {
+            norm,
+            start: word.start,
+            end: word.end,
+            confidence: word.confidence,
+        });
         out.push(Word::new(
             text,
             Span::new(word.start, word.end),
@@ -245,6 +285,27 @@ impl WordAgreement {
         }
         out
     }
+}
+
+/// Guesses below this are usually noise. A later window can still say the word.
+const MIN_WORD_CONFIDENCE: f32 = 0.25;
+
+/// The same word heard again inside this gap is the overlapping window, not a
+/// second utterance. Two seconds of audio are decoded on each hop.
+const REPEAT_GAP_US: i64 = 2_500_000;
+
+#[cfg_attr(not(feature = "whisper"), allow(dead_code))]
+fn within_repeat(a0: Ts, a1: Ts, b0: Ts, b1: Ts) -> bool {
+    b0.0 < a1.0 + REPEAT_GAP_US && b1.0 > a0.0 - REPEAT_GAP_US
+}
+
+fn times_overlap(a0: Ts, a1: Ts, b0: Ts, b1: Ts) -> bool {
+    let overlap = a1.0.min(b1.0) - a0.0.max(b0.0);
+    if overlap <= 0 {
+        return false;
+    }
+    let shorter = (a1.0 - a0.0).min(b1.0 - b0.0).max(1);
+    overlap * 2 >= shorter
 }
 
 #[cfg_attr(not(feature = "whisper"), allow(dead_code))]
@@ -282,6 +343,47 @@ fn phrase_is_ready(audio: &[f32], rate: u32) -> bool {
         && !crate::audio::is_near_silence(&audio[..split])
 }
 
+/// When every word in a phrase shares one start time, split that interval by
+/// length. Otherwise the bleep for one bad word covers the whole phrase.
+#[cfg_attr(not(feature = "whisper"), allow(dead_code))]
+fn spread_shared_times(times: &mut [(i64, i64)], chars: &[usize], seg_t0: i64, seg_t1: i64) {
+    if times.len() < 2 || times.len() != chars.len() {
+        return;
+    }
+    if !times.iter().all(|slot| slot.0 == times[0].0) {
+        return;
+    }
+    let missing = times[0].0 == 0 && times[0].1 == 0;
+    let start = if missing { seg_t0 } else { times[0].0 };
+    let end = if missing {
+        seg_t1
+    } else {
+        times
+            .iter()
+            .map(|slot| slot.1)
+            .max()
+            .unwrap_or(seg_t1)
+            .max(start + times.len() as i64)
+    };
+    if end <= start {
+        return;
+    }
+    let total = chars.iter().sum::<usize>().max(1) as i64;
+    let dur = end - start;
+    let last = times.len() - 1;
+    let mut cursor = start;
+    for (i, (slot, n)) in times.iter_mut().zip(chars).enumerate() {
+        let share = if i == last {
+            end - cursor
+        } else {
+            (dur * (*n as i64) / total).max(1)
+        };
+        slot.0 = cursor;
+        slot.1 = (cursor + share).min(end);
+        cursor = slot.1;
+    }
+}
+
 impl LocalAgreement {
     pub fn commit(&mut self, hypothesis: &[impl AsRef<str>]) -> Vec<String> {
         let current: Vec<String> = hypothesis.iter().map(|s| s.as_ref().to_string()).collect();
@@ -311,13 +413,29 @@ impl SpeechRecognizer for WhisperRecognizer {
             out.extend(self.agreement.flush());
             self.window.reset();
             self.phrase_sent = false;
+            self.early_sent = false;
         }
         let ready = self.window.push(samples, start);
+        let early = if ready.is_empty() && !self.early_sent && self.window.awaiting_first_window() {
+            let rate = self.window.rate;
+            self.window.pending().and_then(|(at, audio)| {
+                (audio.len() >= rate as usize && !crate::audio::is_near_silence(audio))
+                    .then(|| (at, audio.to_vec()))
+            })
+        } else {
+            None
+        };
+        if let Some((at, audio)) = early {
+            self.early_sent = true;
+            self.phrase_sent = true;
+            out.extend(self.transcribe(&audio, at)?);
+        }
         for (at, audio) in ready {
             if crate::audio::is_near_silence(&audio) {
                 out.extend(self.agreement.flush());
                 continue;
             }
+            self.early_sent = false;
             self.phrase_sent = true;
             out.extend(self.transcribe(&audio, at)?);
         }
@@ -402,7 +520,10 @@ fn words_from_state(
     let limit = origin + Dur((real_samples as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
     let mut heard = Vec::new();
     for segment in state.as_iter() {
-        let mut current: Option<PartialWord> = None;
+        if segment.no_speech_probability() > 0.7 {
+            continue;
+        }
+        let mut partials = Vec::new();
         for idx in 0..segment.n_tokens() {
             let Some(token) = segment.get_token(idx) else {
                 continue;
@@ -419,36 +540,44 @@ fn words_from_state(
             } else {
                 (data.t0, data.t1)
             };
-            if raw.starts_with(' ') || current.is_none() {
-                if let Some(word) = current.take() {
-                    take_word(word, origin, limit, &mut heard);
-                }
+            if raw.starts_with(' ') || partials.is_empty() {
                 let text = raw.trim().to_string();
                 if text.is_empty() {
                     continue;
                 }
-                current = Some(PartialWord {
+                partials.push(PartialWord {
                     text,
                     t0,
                     t1,
                     p_sum: token.token_probability(),
                     n: 1,
                 });
-            } else if let Some(word) = current.as_mut() {
+            } else if let Some(word) = partials.last_mut() {
                 word.text.push_str(raw.trim());
                 word.t1 = t1;
                 word.p_sum += token.token_probability();
                 word.n += 1;
             }
         }
-        if let Some(word) = current.take() {
-            take_word(word, origin, limit, &mut heard);
+        let mut times: Vec<(i64, i64)> = partials.iter().map(|w| (w.t0, w.t1)).collect();
+        let chars: Vec<usize> = partials.iter().map(|w| w.text.chars().count()).collect();
+        spread_shared_times(
+            &mut times,
+            &chars,
+            segment.start_timestamp(),
+            segment.end_timestamp(),
+        );
+        for (word, (t0, t1)) in partials.iter_mut().zip(times) {
+            word.t0 = t0;
+            word.t1 = t1;
+            take_word(word.clone(), origin, limit, &mut heard);
         }
     }
     heard
 }
 
 #[cfg(feature = "whisper")]
+#[derive(Clone)]
 struct PartialWord {
     text: String,
     t0: i64,
@@ -557,5 +686,58 @@ mod tests {
         assert!(phrase_is_ready(&audio, rate));
         assert!(!phrase_is_ready(&vec![0.2; 8_000], rate));
         assert!(!phrase_is_ready(&vec![0.0; 16_000], rate));
+    }
+
+    #[test]
+    fn a_shared_timestamp_is_split_across_the_words() {
+        let mut times = [(0, 100), (0, 100), (0, 100)];
+        spread_shared_times(&mut times, &[5, 4, 11], 0, 100);
+        assert!(times[0].0 < times[1].0);
+        assert!(times[1].0 < times[2].0);
+        assert_eq!(times[0].0, 0);
+        assert_eq!(times[2].1, 100);
+        assert!(times[0].1 <= times[1].0);
+        let mut distinct = [(10, 20), (30, 40)];
+        spread_shared_times(&mut distinct, &[4, 4], 0, 100);
+        assert_eq!(distinct, [(10, 20), (30, 40)]);
+    }
+
+    #[test]
+    fn a_later_window_replaces_a_worse_guess_and_a_weak_guess_is_dropped() {
+        let mut agree = WordAgreement::default();
+        let heard = |text: &str, start_ms: i64, confidence: f32| Heard {
+            text: text.into(),
+            start: Ts::from_millis(start_ms),
+            end: Ts::from_millis(start_ms + 300),
+            confidence,
+        };
+        let first = agree.push(
+            vec![heard("free", 100, 0.6), heard("ride", 500, 0.6)],
+            Ts::ZERO,
+        );
+        assert_eq!(
+            first
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["free", "ride"]
+        );
+        let corrected = agree.push(
+            vec![heard("I", 100, 0.8), heard("need", 500, 0.75)],
+            Ts::from_millis(1_000),
+        );
+        assert_eq!(
+            corrected
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["I", "need"]
+        );
+        let worse = agree.push(vec![heard("speloni", 100, 0.4)], Ts::from_millis(1_250));
+        assert!(worse.is_empty());
+        let weak = agree.push(vec![heard("baloney", 3_000, 0.1)], Ts::from_millis(2_000));
+        assert!(weak.is_empty());
+        let repeated = agree.push(vec![heard("need", 1_600, 0.9)], Ts::from_millis(1_500));
+        assert!(repeated.is_empty());
     }
 }

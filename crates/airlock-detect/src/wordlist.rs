@@ -109,7 +109,9 @@ impl WordlistDetector {
                     modality: Modality::Audio,
                     span: w.span,
                     region: None,
-                    confidence: w.confidence,
+                    // A list hit is certain. The recognizer's score often sits under
+                    // the bleep threshold, which let "fucking" air.
+                    confidence: 1.0,
                     reason: match category {
                         Category::Slur => "Slur".to_string(),
                         _ => "Profanity".to_string(),
@@ -153,6 +155,7 @@ mod tests {
         assert_eq!(hits.len(), 3);
         assert_eq!(hits[0].span, Span::from_millis(600, 850));
         assert_eq!(hits[0].evidence, "fu•••••");
+        assert_eq!(hits[0].confidence, 1.0);
     }
 
     #[test]

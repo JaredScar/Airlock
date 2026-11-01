@@ -119,7 +119,12 @@ impl DecisionEngine {
     /// or `None` if policy drops it (category disabled or confidence too low).
     pub fn ingest(&mut self, d: Detection) -> Option<RedactionId> {
         let planned = self.classify(&d)?;
-        let gap = self.policy.merge_gap();
+        // Audio bleeps stay on the word. A gap would swallow the words between
+        // two swears. Video still bridges the sample gap.
+        let gap = match planned.target {
+            Target::Audio => Dur::ZERO,
+            Target::Video { .. } => self.policy.merge_gap(),
+        };
 
         // Merge into an existing compatible redaction if one is close enough.
         if let Some(r) = self.redactions.iter_mut().find(|r| {
@@ -390,6 +395,23 @@ impl DecisionEngine {
         &self.redactions
     }
 
+    /// Drops word-list bleeps that no longer overlap a held hit. `keep` is the
+    /// spans that should still bleep. Returns the ids removed from the queue.
+    pub fn drop_wordlist_outside(&mut self, keep: &[Span]) -> Vec<RedactionId> {
+        let mut removed = Vec::new();
+        self.redactions.retain(|redaction| {
+            let wordlist = matches!(redaction.category, Category::Profanity | Category::Slur)
+                && redaction.is_audio()
+                && !redaction.missed_live;
+            if !wordlist || keep.iter().any(|span| redaction.span.overlaps(span)) {
+                return true;
+            }
+            removed.push(redaction.id);
+            false
+        });
+        removed
+    }
+
     /// Moves a live redaction's end later without creating a second one.
     pub fn extend_end(&mut self, id: RedactionId, end: Ts) -> bool {
         let Some(redaction) = self.redactions.iter_mut().find(|r| r.id == id) else {
@@ -449,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    fn nearby_words_merge() {
+    fn nearby_words_stay_separate_bleeps() {
         let mut e = DecisionEngine::new(Policy::default());
         let a = e
             .ingest(det(Category::Profanity, Modality::Audio, 1000, 1200, 0.9))
@@ -457,14 +479,14 @@ mod tests {
         let b = e
             .ingest(det(Category::Profanity, Modality::Audio, 1400, 1600, 0.9))
             .unwrap();
-        assert_eq!(a, b);
-        assert_eq!(e.all().len(), 1);
-        assert_eq!(e.get(a).unwrap().span, Span::from_millis(920, 1680));
-        // Far away = separate redaction.
-        let c = e
-            .ingest(det(Category::Profanity, Modality::Audio, 5000, 5200, 0.9))
+        assert_ne!(a, b);
+        assert_eq!(e.get(a).unwrap().span, Span::from_millis(920, 1280));
+        assert_eq!(e.get(b).unwrap().span, Span::from_millis(1320, 1680));
+        // The same word heard twice, with overlapping spans, is still one bleep.
+        let again = e
+            .ingest(det(Category::Profanity, Modality::Audio, 1000, 1250, 0.9))
             .unwrap();
-        assert_ne!(a, c);
+        assert_eq!(a, again);
     }
 
     #[test]

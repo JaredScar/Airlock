@@ -135,7 +135,9 @@ impl TimedEventView {
     fn event_type(&self) -> &'static str {
         match self.event {
             UiEvent::Transcript { .. } => "transcript",
+            UiEvent::TranscriptRevised { .. } => "transcript_revised",
             UiEvent::RedactionUpserted { .. } => "redaction_upserted",
+            UiEvent::RedactionRemoved { .. } => "redaction_removed",
             UiEvent::RedactionAired { .. } => "redaction_aired",
             UiEvent::Clock { .. } => "clock",
             UiEvent::AnalysisStall { .. } => "analysis_stall",

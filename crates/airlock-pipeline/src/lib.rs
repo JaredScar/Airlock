@@ -82,8 +82,17 @@ pub enum UiEvent {
     Transcript {
         words: Vec<Word>,
     },
+    /// A later guess replaced words that have not started airing.
+    TranscriptRevised {
+        replaced: Vec<Span>,
+        words: Vec<Word>,
+    },
     RedactionUpserted {
         redaction: Redaction,
+    },
+    /// A held word-list bleep no longer matches the transcript.
+    RedactionRemoved {
+        id: RedactionId,
     },
     RedactionAired {
         redaction: Redaction,
@@ -179,6 +188,10 @@ impl Session {
         &self.engine
     }
 
+    pub fn transcript(&self) -> &[Word] {
+        &self.transcript
+    }
+
     pub fn playhead(&self) -> Ts {
         self.live - (self.cfg.policy.delay() + self.extra_delay)
     }
@@ -221,30 +234,116 @@ impl Session {
         }
     }
 
-    /// New finalized words from ASR.
+    /// New words from ASR. A word that overlaps one still in the hold replaces it
+    /// when the new guess is not clearly worse. A word that has started airing stays.
     pub fn on_words(&mut self, words: Vec<Word>) {
         if words.is_empty() {
             return;
         }
-        let mut found = self.wordlist.scan(&words);
-        // PII can span batches ("my number is" | "631-555-0123"), so scan a little context.
-        let ctx_start = self.transcript.len().saturating_sub(8);
-        let mut window: Vec<Word> = self.transcript[ctx_start..].to_vec();
-        window.extend(words.iter().cloned());
-        let new_from = words[0].span.start;
+        let playhead = self.playhead();
+        let mut fresh = Vec::new();
+        let mut revised = Vec::new();
+        let mut replace_idx = vec![false; self.transcript.len()];
+        let mut claimed = vec![false; self.transcript.len()];
+        for word in words {
+            let overlaps_aired = self
+                .transcript
+                .iter()
+                .any(|old| old.span.start <= playhead && time_overlap(old.span, word.span));
+            if overlaps_aired {
+                continue;
+            }
+            let hits: Vec<usize> = self
+                .transcript
+                .iter()
+                .enumerate()
+                .filter(|(idx, old)| {
+                    !claimed[*idx]
+                        && !replace_idx[*idx]
+                        && old.span.start > playhead
+                        && time_overlap(old.span, word.span)
+                })
+                .map(|(idx, _)| idx)
+                .collect();
+            if hits.is_empty() {
+                if is_repeat(&word, &self.transcript) || is_repeat(&word, &fresh) {
+                    continue;
+                }
+                fresh.push(word);
+                continue;
+            }
+            let same = hits.len() == 1
+                && norm_word(&self.transcript[hits[0]].text) == norm_word(&word.text);
+            if same {
+                claimed[hits[0]] = true;
+                continue;
+            }
+            let best = hits
+                .iter()
+                .map(|idx| self.transcript[*idx].confidence)
+                .fold(0.0_f32, f32::max);
+            if word.confidence + 0.15 < best {
+                continue;
+            }
+            for idx in hits {
+                replace_idx[idx] = true;
+            }
+            revised.push(word);
+        }
+
+        let mut replaced = Vec::new();
+        let mut kept = Vec::new();
+        for (idx, word) in self.transcript.drain(..).enumerate() {
+            if replace_idx[idx] {
+                replaced.push(word.span);
+            } else {
+                kept.push(word);
+            }
+        }
+        self.transcript = kept;
+        let accepted: Vec<Word> = revised.iter().chain(fresh.iter()).cloned().collect();
+        self.transcript.extend(accepted.iter().cloned());
+        self.transcript
+            .sort_by_key(|word| (word.span.start, word.span.end));
+        if accepted.is_empty() {
+            return;
+        }
+
+        let mut found = self.wordlist.scan(&accepted);
+        let new_from = accepted
+            .iter()
+            .map(|word| word.span.start)
+            .min()
+            .unwrap_or(playhead);
+        let ctx_start = self.transcript.len().saturating_sub(8 + accepted.len());
         found.extend(
             self.pii
-                .scan(&window)
+                .scan(&self.transcript[ctx_start..])
                 .into_iter()
-                .filter(|d| d.span.end > new_from),
+                .filter(|detection| detection.span.end > new_from),
         );
-
-        if let Some(end) = words.iter().map(|w| w.span.end).max() {
+        if let Some(end) = accepted.iter().map(|word| word.span.end).max() {
             self.last_word_at = Some(self.last_word_at.map(|t| t.max(end)).unwrap_or(end));
         }
         self.clear_stall();
-        self.transcript.extend(words.iter().cloned());
-        self.events.push(UiEvent::Transcript { words });
+        let still: Vec<Span> = self
+            .wordlist
+            .scan(&self.transcript)
+            .into_iter()
+            .map(|detection| detection.span)
+            .collect();
+        for id in self.engine.drop_wordlist_outside(&still) {
+            self.events.push(UiEvent::RedactionRemoved { id });
+        }
+        if !fresh.is_empty() {
+            self.events.push(UiEvent::Transcript { words: fresh });
+        }
+        if !replaced.is_empty() {
+            self.events.push(UiEvent::TranscriptRevised {
+                replaced,
+                words: revised,
+            });
+        }
         self.ingest_all(found);
     }
 
@@ -505,4 +604,29 @@ impl Session {
     pub fn aired(&self) -> &[Redaction] {
         &self.aired
     }
+}
+
+fn time_overlap(a: Span, b: Span) -> bool {
+    let overlap = a.end.0.min(b.end.0) - a.start.0.max(b.start.0);
+    if overlap <= 0 {
+        return false;
+    }
+    let shorter = (a.end.0 - a.start.0).min(b.end.0 - b.start.0).max(1);
+    overlap * 2 >= shorter
+}
+
+fn is_repeat(word: &Word, existing: &[Word]) -> bool {
+    let norm = norm_word(&word.text);
+    existing.iter().any(|old| {
+        norm_word(&old.text) == norm
+            && word.span.start.0 < old.span.end.0 + 2_500_000
+            && word.span.end.0 > old.span.start.0 - 2_500_000
+    })
+}
+
+fn norm_word(text: &str) -> String {
+    text.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '\'')
+        .flat_map(|c| c.to_lowercase())
+        .collect()
 }
