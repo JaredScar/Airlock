@@ -48,6 +48,8 @@ export class StudioService {
   readonly modelProgress = signal<number | null>(null);
   readonly modelNote = signal('The file is kept only after its checksum matches.');
   readonly streamKeySaved = signal(false);
+  readonly licenseNote = signal('Paste a Pro license and press Save license.');
+  readonly pro = signal(false);
 
   constructor() {
     if (inDesktopShell()) void this.pullFromDesktop();
@@ -161,8 +163,60 @@ export class StudioService {
     this.commit({ ...this.settings(), cloud_stt_consent });
   }
 
-  setLicense(license_key: string) {
-    this.commit({ ...this.settings(), license_key: license_key.trim() });
+  async setLicense(license_key: string): Promise<boolean> {
+    const key = license_key.trim();
+    if (!key) return false;
+    const pro = await this.licenseIsPro(key);
+    if (inDesktopShell() && !pro) {
+      this.licenseNote.set(
+        this.settings().license_key
+          ? 'That key was not accepted. The saved license is unchanged.'
+          : 'That key was not accepted. Pro stays off.',
+      );
+      return false;
+    }
+    this.commit({ ...this.settings(), license_key: key });
+    this.pro.set(inDesktopShell());
+    this.licenseNote.set(
+      inDesktopShell()
+        ? 'Pro is on. The context judge, on-screen scanning, and cloud speech apply the next time you go live.'
+        : 'License saved in this preview. Pro is checked in the desktop app.',
+    );
+    return true;
+  }
+
+  clearLicense() {
+    this.commit({ ...this.settings(), license_key: '' });
+    this.pro.set(false);
+    this.licenseNote.set('Pro is off until a license is saved.');
+  }
+
+  async refreshLicense(key = this.settings().license_key) {
+    if (!key) {
+      this.pro.set(false);
+      this.licenseNote.set('Pro is off until a license is saved.');
+      return;
+    }
+    if (!inDesktopShell()) {
+      this.pro.set(false);
+      this.licenseNote.set('A license is saved in this preview. Pro is checked in the desktop app.');
+      return;
+    }
+    const pro = await this.licenseIsPro(key);
+    this.pro.set(pro);
+    this.licenseNote.set(
+      pro
+        ? 'Pro is on. The context judge, on-screen scanning, and cloud speech apply the next time you go live.'
+        : 'The saved license was not accepted. Pro stays off.',
+    );
+  }
+
+  private async licenseIsPro(key: string): Promise<boolean> {
+    try {
+      return await invoke<boolean>('license_is_pro', { key });
+    } catch {
+      return false;
+    }
   }
 
   setTelemetry(telemetry_opt_in: boolean) {
@@ -202,6 +256,8 @@ export class StudioService {
 
   reset() {
     this.commit(structuredClone(DEFAULT_STUDIO));
+    this.pro.set(false);
+    this.licenseNote.set('Pro is off until a license is saved.');
   }
 
   async downloadModel() {
@@ -242,19 +298,17 @@ export class StudioService {
 
   private async pullFromDesktop() {
     try {
+      const local = this.settings();
       const remote = await invoke<StudioSettings>('get_studio_settings');
-      const base = structuredClone(DEFAULT_STUDIO);
-      this.settings.set({
-        ...base,
-        ...remote,
-        policy: {
-          ...base.policy,
-          ...remote.policy,
-          categories: { ...base.policy.categories, ...remote.policy?.categories },
-        },
-      });
+      const merged: StudioSettings = {
+        ...local,
+        private_terms: remote.private_terms.length ? remote.private_terms : local.private_terms,
+      };
+      this.settings.set(merged);
+      await this.pushToDesktop(merged);
       this.error.set(null);
       void this.refreshStreamKey();
+      void this.refreshLicense();
     } catch (e) {
       this.error.set(String(e));
     }

@@ -4,10 +4,10 @@ Written 2026-10-31. This is only the work that cannot be finished from the code.
 
 ## Before the next broadcast
 
-- [ ] Restart Airlock so it is running the latest build.
-- [ ] In Streamlabs Desktop, use one destination only: Settings → Stream → Stream to custom ingest → Custom Streaming Server. URL `rtmp://127.0.0.1:1935/live`. Stream key `airlock`. Leave the Twitch destination off in Streamlabs. That key is only the hop from Streamlabs to this PC.
-- [ ] In Airlock Settings → Platform, save the Twitch stream key from Twitch's stream settings. This is the platform stream key, not an API client secret. After Go live, the status should read "Forwarding to Twitch." once the 8 second hold has passed. Ingest should read Connected.
-- [ ] Paste this development Pro license into Settings → License: `pro.2ee0536332375def1366cd3be1e70e96fb796986c1cc44b88613562ed07b87a7`. Word lists, dump, and spoken personal info work without it. The context judge, on-screen scanning, and cloud speech need it.
+- [x] Restart Airlock so it is running the latest build.
+- [x] In Streamlabs Desktop, use one destination only: Settings → Stream → Stream to custom ingest → Custom Streaming Server. URL `rtmp://127.0.0.1:1935/live`. Stream key `airlock`. Leave the Twitch destination off in Streamlabs. That key is only the hop from Streamlabs to this PC.
+- [x] In Airlock Settings → Platform, save the Twitch stream key from Twitch's stream settings. This is the platform stream key, not an API client secret. After Go live, the status should read "Forwarding to Twitch." once the 8 second hold has passed. Ingest should read Connected.
+- [x] Paste this development Pro license into Settings → License: `pro.2ee0536332375def1366cd3be1e70e96fb796986c1cc44b88613562ed07b87a7`. Word lists, dump, and spoken personal info work without it. The context judge, on-screen scanning, and cloud speech need it.
 - [ ] Speech stays on this PC with the Whisper model already in the app data folder. Cloud speech stays off unless you check "Audio may be sent to Deepgram for speech recognition" and save a Deepgram key in that same panel.
 - [ ] The context judge uses Ollama at `127.0.0.1:11434` with model `qwen3:8b` unless you check "Transcript text may leave this PC" and save an Anthropic key. Start Ollama before Go live if you want the local judge.
 

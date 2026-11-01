@@ -227,9 +227,15 @@
       <p class="hint">Word lists, the dump button, and spoken personal info stay on without a key. The context judge, on-screen scanning, cloud speech, and the cloud judge are the Pro checks. The key is verified on this PC.</p>
     </header>
     <div class="scroll settings-body">
-      <form class="add" (submit)="$event.preventDefault()">
-        <input [value]="studio.settings().license_key" (change)="onLicense($event)" placeholder="Pro license" aria-label="License key" autocomplete="off" />
+      <form class="add" (submit)="saveLicense($event)">
+        <input name="license" [value]="licenseDraft()" (input)="onLicense($event)" [disabled]="studio.pro()" [placeholder]="studio.pro() ? 'Pro license saved' : 'Pro license'" aria-label="License key" autocomplete="off" />
+        @if (studio.pro()) {
+          <button type="button" class="ghost" (click)="resetLicense()">Reset license</button>
+        } @else {
+          <button type="submit">Save license</button>
+        }
       </form>
+      <p class="hint">{{ studio.licenseNote() }}</p>
     </div>
   </section>
 

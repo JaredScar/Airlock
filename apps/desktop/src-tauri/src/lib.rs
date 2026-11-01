@@ -10,7 +10,7 @@ mod live;
 
 use airlock_core::{Platform, RedactionId};
 use airlock_media::key_account;
-use airlock_pipeline::{Session, StudioSettings, UiEvent, incident};
+use airlock_pipeline::{Feature, Session, StudioSettings, UiEvent, allows, incident};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -62,6 +62,11 @@ fn set_studio_settings(
         .map_err(|_| "settings lock poisoned".to_string())?;
     *guard = settings;
     Ok(())
+}
+
+#[tauri::command]
+fn license_is_pro(key: String) -> bool {
+    allows(&key, Feature::ContextJudge)
 }
 
 #[tauri::command]
@@ -335,6 +340,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_studio_settings,
             set_studio_settings,
+            license_is_pro,
             set_cloud_key,
             set_speech_key,
             set_stream_key,

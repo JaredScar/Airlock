@@ -31,6 +31,7 @@ export class SettingsComponent {
   readonly termDraft = signal('');
   readonly keyDraft = signal('');
   readonly speechKeyDraft = signal('');
+  readonly licenseDraft = signal('');
   readonly streamKeyDraft = signal('');
   readonly shortcuts = [
     { id: 'veto' as const, label: 'Veto next' },
@@ -134,7 +135,18 @@ export class SettingsComponent {
 
   onLicense(event: Event) {
     const input = event.target;
-    if (input instanceof HTMLInputElement) this.studio.setLicense(input.value);
+    if (input instanceof HTMLInputElement) this.licenseDraft.set(input.value);
+  }
+
+  async saveLicense(event: Event) {
+    event.preventDefault();
+    const saved = await this.studio.setLicense(this.licenseDraft());
+    if (saved) this.licenseDraft.set('');
+  }
+
+  resetLicense() {
+    this.licenseDraft.set('');
+    this.studio.clearLicense();
   }
 
   onTelemetry(event: Event) {
