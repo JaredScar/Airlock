@@ -1,10 +1,11 @@
 //! Local Whisper. The desktop app builds this behind the `whisper` feature.
 //!
 //! Each stretch of audio is committed once, from the stable middle of a window.
-//! The last second of a window waits for the next hop, where it is no longer
-//! the unstable tail. A pause commits the phrase immediately. The same word is
-//! not written twice. A very unsure guess is dropped. Non-speech markers such
-//! as `[BLANK_AUDIO]` are dropped.
+//! Whisper stops after the first phrase, so the rest of that window is decoded
+//! again. Time is sealed only through the last word that was written, and the
+//! tail of an open window waits for the next hop. A pause commits the phrase
+//! immediately. The same word is not written twice. A very unsure guess is
+//! dropped. Non-speech markers such as `[BLANK_AUDIO]` are dropped.
 
 use crate::{ASR_SAMPLE_RATE, AsrError, SpeechRecognizer};
 use airlock_core::{Dur, Span, Ts, Word};
@@ -61,6 +62,9 @@ impl WhisperRecognizer {
         }
         #[cfg(feature = "whisper")]
         {
+            // Token dumps go to stderr by default and fill the dev console.
+            // Without a log backend this hook keeps them off that stream.
+            whisper_rs::install_logging_hooks();
             let path = config
                 .model_path
                 .to_str()
@@ -194,8 +198,8 @@ struct Heard {
     confidence: f32,
 }
 
-/// Commits the stable part of one window. Audio already committed is left alone,
-/// and the last second of an open window waits for the next hop.
+/// Commits words before the tail of an open window. Time is sealed only through
+/// the last word that was written, so audio Whisper skipped stays open.
 #[derive(Debug, Default)]
 struct WordAgreement {
     previous: Vec<Heard>,
@@ -238,9 +242,6 @@ impl WordAgreement {
             }
             self.commit_heard(word, &mut out);
         }
-        if !out.is_empty() {
-            self.committed_until = self.committed_until.max(stable_until);
-        }
         out
     }
 
@@ -250,7 +251,6 @@ impl WordAgreement {
             return;
         }
         let norm = normalize_word(text);
-        self.committed_until = self.committed_until.max(word.end);
         self.said
             .retain(|prev| word.end.0.saturating_sub(prev.end.0) < 30_000_000);
         let hits: Vec<usize> = self
@@ -277,6 +277,7 @@ impl WordAgreement {
                 self.said.remove(idx);
             }
         }
+        self.committed_until = self.committed_until.max(word.end);
         self.said.push(Said {
             norm,
             start: word.start,
@@ -312,6 +313,10 @@ const REPEAT_GAP_US: i64 = 2_500_000;
 /// Words in the last part of an open window are held for the next hop.
 /// Short enough that a word still shows well before the delay lets it air.
 const TAIL_US: i64 = 400_000;
+
+/// A first phrase that leaves at least this much audio gets a second decode.
+#[cfg_attr(not(feature = "whisper"), allow(dead_code))]
+const REMAINDER_US: i64 = 800_000;
 
 fn collapse_consecutive(heard: Vec<Heard>) -> Vec<Heard> {
     let mut out: Vec<Heard> = Vec::new();
@@ -497,6 +502,32 @@ impl WhisperRecognizer {
 
     #[cfg(feature = "whisper")]
     fn run_model(&mut self, audio: &[f32], at: Ts, complete: bool) -> Result<Vec<Word>, AsrError> {
+        let mut heard = self.decode_slice(audio, at)?;
+        if let Some(last) = heard.last() {
+            let covered = (last.end.0 - at.0).max(0);
+            let total = (audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE);
+            if total - covered >= REMAINDER_US {
+                let skip = (covered * i64::from(ASR_SAMPLE_RATE) / 1_000_000) as usize;
+                if skip > 0 && skip < audio.len() {
+                    let rest = &audio[skip..];
+                    if rest.len() >= (ASR_SAMPLE_RATE / 2) as usize {
+                        let origin = at + Dur(covered);
+                        if let Ok(more) = self.decode_slice(rest, origin) {
+                            heard.extend(more);
+                            heard.sort_by_key(|word| (word.start, word.end));
+                        }
+                    }
+                }
+            }
+        }
+        let window_end = at + Dur((audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
+        Ok(self.agreement.push(heard, window_end, complete))
+    }
+
+    /// One Whisper pass. The decoder stops after its first phrase, so the caller
+    /// decodes whatever audio that phrase did not cover.
+    #[cfg(feature = "whisper")]
+    fn decode_slice(&mut self, audio: &[f32], at: Ts) -> Result<Vec<Heard>, AsrError> {
         let mut samples = audio.to_vec();
         if samples.len() < ASR_SAMPLE_RATE as usize {
             samples.resize(ASR_SAMPLE_RATE as usize, 0.0);
@@ -525,9 +556,7 @@ impl WhisperRecognizer {
         self.state
             .full(params, &samples)
             .map_err(|err| AsrError::Inference(err.to_string()))?;
-        let heard = words_from_state(&self.state, at, audio.len());
-        let window_end = at + Dur((audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE));
-        Ok(self.agreement.push(heard, window_end, complete))
+        Ok(words_from_state(&self.state, at, audio.len()))
     }
 }
 
@@ -787,5 +816,25 @@ mod tests {
             true,
         );
         assert!(weak.is_empty());
+    }
+
+    #[test]
+    fn a_word_in_the_skipped_stretch_is_kept_on_the_next_window() {
+        let mut agree = WordAgreement::default();
+        let heard = |text: &str, start_ms: i64| Heard {
+            text: text.into(),
+            start: Ts::from_millis(start_ms),
+            end: Ts::from_millis(start_ms + 300),
+            confidence: 0.8,
+        };
+        let first = agree.push(vec![heard("free", 100)], Ts::from_millis(2_000), false);
+        assert_eq!(first.len(), 1);
+        let next = agree.push(vec![heard("world", 1_200)], Ts::from_millis(2_250), false);
+        assert_eq!(
+            next.iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["world"]
+        );
     }
 }
