@@ -97,8 +97,8 @@ Video is passed through untouched (no re-encode).
 
 ## Phase 4: On-screen secrets and PII
 
-- [ ] 4.1 Video transcode path: decode frames (hardware decode), apply `video_fx`, encode with NVENC/AMF/QSV (fallback x264). Passthrough stays the default until a video category is enabled.
-  - *Done when:* 1080p60 transcode adds < 1 frame of latency and < 10% GPU on the dev machine. Measured 2026-10-29: NVENC low-latency 1080p60 at 6 Mbps, paced for 8 seconds, ran at 1.05x. A one-second burst encoded in 0.17s, about 2.8 ms per frame. During the paced encode, nvidia-smi showed GPU 16–29% and the encoder at 0–4%. The GPU column is over 10%, so this stays open. 2026-10-30: a generated clip is decoded, pixelated with `pixelate_bgra`, and encoded (NVENC, or x264 if NVENC is absent). The left half of the frame changes more than the untouched right half.
+- [x] 4.1 Video transcode path: decode frames (hardware decode), apply `video_fx`, encode with NVENC/AMF/QSV (fallback x264). Passthrough stays the default until a video category is enabled. — done 2026-11-01: NVENC encodes the CUDA frames directly at preset p1, low latency, 6 Mbps. A paced 8-second 1080p60 pixelate sat at 7% GPU and 2% encoder after the first sample (that sample read 12% while the graph started). 480 frames encoded in 899 ms, about 1.9 ms each.
+  - *Done when:* 1080p60 transcode adds < 1 frame of latency and < 10% GPU on the dev machine.
 - [x] 4.2 Analysis frame tap: `FrameSampler` at 4 fps, downscale for OCR, keep normalized coordinates. — done 2026-10-28: 4 fps sampler was already tested. `downscale_bgra` shrinks the long edge and leaves coordinates normalized.
 - [x] 4.3 `WindowsOcr` via the `windows` crate (`Windows.Media.Ocr`); returns line-level boxes. Evaluate PaddleOCR (ONNX Runtime + CUDA) as a higher-accuracy option behind the same trait. — done 2026-10-28: feature `winocr` reads a painted word into normalized line boxes. PaddleOCR stays a later optional trait impl; it is not a dependency.
 - [x] 4.4 Retroactive blur: a detection at sample k covers from sample k−1 (already provided by `FrameSampler::offer`) plus policy padding. Verify with a test video where a key appears for a single frame between samples. — done 2026-10-28: a key seen at the 250 ms sample covers the frame at 100 ms, and pixelating that region changes the synthetic frame.
@@ -212,6 +212,7 @@ Video is passed through untouched (no re-encode).
 - D54 2026-11-01: Live speech uses beam size 2 on one segment per 2s window, and drops a segment the model is unsure about. A profanity bleep colors only the word whose text matches the hit. The 1.5s latency bar is still 2.2.
 - D55 2026-11-01: Whisper stops after the first phrase and skips the rest of the window. That remainder is decoded once when at least 0.8s is left. Time is sealed only through the last word written, so a later hop can still commit what the first phrase missed. The 1.5s latency bar is still 2.2.
 - D56 2026-11-01: The GPU build's local recognizer is Parakeet TDT 0.6B v2 (ONNX, CC-BY-4.0) when `models/parakeet-tdt-0.6b-v2` matches its pinned checksums. The ONNX Runtime environment is created with `ort::init().build()` and shared by the CUDA provider and the CPU fallback. This crate needs Rust 1.92. Whisper stays the fallback recognizer, and Deepgram stays the opt-in cloud path. `cargo test` does not compile Parakeet. The 1.5s latency bar is still 2.2.
+- D57 2026-11-01: A video redaction stays on the GPU through encode. NVENC takes the CUDA frames from `overlay_cuda` at preset p1, tune ll, 6 Mbps CBR. The x264 fallback still downloads the frame. A paced 1080p60 run sat at 7% GPU. The 1.5s speech bar is still 2.2.
 
 ## Open questions (for Jared)
 
