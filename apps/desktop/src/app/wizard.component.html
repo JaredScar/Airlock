@@ -14,17 +14,18 @@
       <p class="hint">{{ studio.modelNote() }}</p>
 
       <h3>2. Platform key</h3>
-      <div class="platforms" role="radiogroup" aria-label="Destination platform">
+      <div class="platforms" role="group" aria-label="Destinations">
         @for (id of destinations; track id) {
-          <button
-            class="platform"
-            [class.on]="studio.settings().platform === id"
-            role="radio"
-            [attr.aria-checked]="studio.settings().platform === id"
-            (click)="studio.choosePlatform(id)"
-          >{{ names[id] }}</button>
+          <div class="platform-pick">
+            <label>
+              <input type="checkbox" [checked]="studio.isDestination(id)" (change)="onDestination(id, $event)" [attr.aria-label]="'Send to ' + names[id]" />
+              {{ names[id] }}
+            </label>
+            <button type="button" class="ghost" [class.on]="studio.settings().platform === id" (click)="studio.focusDestination(id)" [attr.aria-pressed]="studio.settings().platform === id" [attr.aria-label]="'Edit ' + names[id] + ' key and rules'">Edit</button>
+          </div>
         }
       </div>
+      <p class="hint">Check every destination. A second one needs Pro. Edit chooses which key this box saves.</p>
       <form class="add" (submit)="$event.preventDefault(); saveStreamKey()">
         <input type="password" autocomplete="off" [value]="streamKeyDraft()" (input)="onStreamKey($event)" [attr.placeholder]="platformName() + ' stream key'" [attr.aria-label]="platformName() + ' stream key'" />
         <button type="submit">Save stream key</button>

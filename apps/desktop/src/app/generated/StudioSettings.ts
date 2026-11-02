@@ -2,7 +2,15 @@
 import type { Platform } from "./Platform";
 import type { Policy } from "./Policy";
 
-export type StudioSettings = { platform: Platform, 
+export type StudioSettings = { 
+/**
+ * The platform whose stream key and rules are on screen.
+ */
+platform: Platform, 
+/**
+ * Destinations that receive the cleaned stream. Empty means `platform` only.
+ */
+destinations: Array<Platform>, 
 /**
  * The streamer's own judge rules, per destination. Not the shipped pack.
  */

@@ -37,6 +37,8 @@ pub struct JudgeRequest<'a> {
     /// Index into `words` where the not-yet-judged focus region starts.
     pub focus_start: usize,
     pub platform: Platform,
+    /// Other destinations that receive this same encode. Their packs are included.
+    pub also: &'a [Platform],
     pub delay: Dur,
     pub streamer_rules: &'a [String],
 }
@@ -68,15 +70,10 @@ pub fn build_prompt(req: &JudgeRequest<'_>) -> String {
             .collect::<Vec<_>>()
             .join("\n")
     };
-    let platform = match req.platform {
-        Platform::Twitch => "Twitch",
-        Platform::Youtube => "YouTube",
-        Platform::Kick => "Kick",
-        Platform::Generic => "a streaming platform",
-    };
+    let platform = platform_label(req.platform, req.also);
     PROMPT_TEMPLATE
-        .replace("{platform_rules}", platform_rules(req.platform).trim())
-        .replace("{platform}", platform)
+        .replace("{platform_rules}", &combined_platform_rules(req.platform, req.also))
+        .replace("{platform}", &platform)
         .replace(
             "{delay_seconds}",
             &format!("{:.0}", req.delay.as_secs_f64()),
@@ -141,6 +138,51 @@ pub fn parse_response(raw: &str, req: &JudgeRequest<'_>) -> Result<Vec<Detection
         .collect())
 }
 
+fn platform_label(primary: Platform, also: &[Platform]) -> String {
+    let mut names = vec![platform_title(primary).to_string()];
+    for platform in also {
+        if *platform == primary || *platform == Platform::Generic {
+            continue;
+        }
+        let title = platform_title(*platform);
+        if !names.iter().any(|name| name == title) {
+            names.push(title.to_string());
+        }
+    }
+    match names.len() {
+        0 => "a streaming platform".into(),
+        1 => names.remove(0),
+        2 => format!("{} and {}", names[0], names[1]),
+        _ => {
+            let last = names.pop().unwrap_or_default();
+            format!("{}, and {last}", names.join(", "))
+        }
+    }
+}
+
+fn platform_title(platform: Platform) -> &'static str {
+    match platform {
+        Platform::Twitch => "Twitch",
+        Platform::Youtube => "YouTube",
+        Platform::Kick => "Kick",
+        Platform::Generic => "a streaming platform",
+    }
+}
+
+fn combined_platform_rules(primary: Platform, also: &[Platform]) -> String {
+    let mut parts = vec![platform_rules(primary).trim().to_string()];
+    for platform in also {
+        if *platform == primary || *platform == Platform::Generic {
+            continue;
+        }
+        let pack = platform_rules(*platform).trim();
+        if !parts.iter().any(|kept| kept == pack) {
+            parts.push(pack.to_string());
+        }
+    }
+    parts.join("\n\n")
+}
+
 /// Versioned guidance from `config/platform_rules/`. Generic has no pack.
 pub fn platform_rules(platform: Platform) -> &'static str {
     match platform {
@@ -179,6 +221,7 @@ mod tests {
             words: ws,
             focus_start: 2,
             platform: Platform::Twitch,
+            also: &[],
             delay: Dur::from_millis(8000),
             streamer_rules: &[],
         }
@@ -260,6 +303,15 @@ mod tests {
         let y = build_prompt(&youtube);
         assert!(y.contains("YouTube pack v1"));
         assert!(!y.contains("Twitch pack v1"));
+
+        let both = JudgeRequest {
+            also: &[Platform::Youtube],
+            ..req(&ws)
+        };
+        let shared = build_prompt(&both);
+        assert!(shared.contains("on Twitch and YouTube"));
+        assert!(shared.contains("Twitch pack v1"));
+        assert!(shared.contains("YouTube pack v1"));
     }
 
     #[test]

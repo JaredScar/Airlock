@@ -37,11 +37,7 @@ export class AppComponent {
   readonly demoMode = signal(false);
 
   platformName(): string {
-    const id = this.studio.settings().platform;
-    if (id === 'twitch') return 'Twitch';
-    if (id === 'youtube') return 'YouTube';
-    if (id === 'kick') return 'Kick';
-    return 'Generic';
+    return this.studio.destinationLabel();
   }
 
   dump() {

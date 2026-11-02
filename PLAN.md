@@ -117,6 +117,8 @@ Video is passed through untouched (no re-encode).
 - [x] 5.6 Health panel: ingest bitrate, buffer fill, ASR/judge/OCR latency p50/p95, dropped frames, GPU usage. — done 2026-10-29: the live page shows hold and buffer fill. Ingest, dropped frames, speech, judge, on-screen text, and GPU stay blank until a broadcast reports them. Judge p50/p95 is computed from completed samples.
 - [x] 5.7 Light theme + accessibility pass (keyboard navigation, screen reader labels, color-blind-safe category colors). — done 2026-10-28: Light/Dark toggle, focus outlines, labeled controls, and category hues that are not a red/green pair (amber, red, blue, teal, purple, brown, gray).
 - [x] 5.8 System tray + start with OBS (detect OBS launch). — done 2026-11-01: Show and Quit were already on the tray. Closing the window hides it there. Every two seconds the process list is checked. When `obs64.exe` appears, and Settings has "Start the listener when OBS opens" on, Airlock opens the same listener as Go live. A session that is already listening is left alone. With OBS running on this PC, that image was visible to the check.
+- [x] 5.9 Multistream: one cleaned encode copied to Twitch, YouTube, and Kick together. — done 2026-11-01: Settings and Setup check each destination. Go live opens one publisher per saved key, and one failure does not stop the others. A second destination needs Pro. The judge prompt includes every selected platform pack and those streamer rules. A looser per-platform encode is still later.
+  - *Done when:* more than one destination can be selected, each saved key is published, a failed destination leaves the others up, and the license gate is tested.
 
 ## Phase 6: Evaluation and quality
 
@@ -146,7 +148,7 @@ Video is passed through untouched (no re-encode).
 
 ## Later / ideas
 
-- Multistream with per-platform policies (Kick looser than YouTube) — needs one encode per policy.
+- A looser Kick cut than the YouTube cut — needs a second encode, because 5.9 copies one cleaned stream to every destination.
 - Chat-aware judge: read Twitch chat so the judge knows when the streamer is reading a message aloud.
 - Music detection (DMCA): fingerprint background music and mute it in the VOD/live.
 - Team/agency mode: a moderator approves/vetoes remotely during the delay window.
@@ -221,6 +223,7 @@ Video is passed through untouched (no re-encode).
 - D63 2026-11-01: Closing the window hides Airlock in the tray. Quit on the tray exits. `obs64.exe` appearing in the process list is an OBS launch. When that happens and `start_with_obs` is on, the app opens the local listener. The default is on. A listener that is already running is not restarted.
 - D64 2026-11-01: OBS source names come from WebSocket 5 on `127.0.0.1:4455`. The password is a keychain entry `airlock/obs` and is sent only as the Identify auth field. Never-scan removes a source. Always-scan adds it even when the program scene does not contain it. A name on both lists is not scanned.
 - D65 2026-11-01: Setup detects the GPU, names the speech model this build will run, saves the platform stream key, and sets OBS's custom RTMP server to `rtmp://127.0.0.1:1935/live` with the local key `airlock`. The write is checked by reading the service settings back. The platform key and the WebSocket password stay in the OS keychain.
+- D66 2026-11-01: Multistream copies one AAC encode and the same video packets to each selected destination. A second destination is Pro. Without Pro, only the focused platform is published. The judge prompt gets every published platform's pack and the union of those streamer rules, so the shared encode follows the stricter rules. A destination whose publish fails retries on its own. Separate encodes for a looser platform stay later.
 
 ## Open questions (for Jared)
 

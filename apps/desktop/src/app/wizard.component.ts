@@ -40,6 +40,12 @@ export class WizardComponent {
     }
   }
 
+  onDestination(id: 'twitch' | 'youtube' | 'kick', event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    if (!this.studio.setDestination(id, input.checked)) input.checked = this.studio.isDestination(id);
+  }
+
   platformName(): string {
     const id = this.studio.settings().platform;
     if (id === 'twitch' || id === 'youtube' || id === 'kick') return this.names[id];

@@ -47,6 +47,8 @@ pub const DEFAULT_ALLOWLIST: &str = include_str!("../../../config/wordlists/allo
 pub struct SessionConfig {
     pub policy: Policy,
     pub platform: Platform,
+    /// Other destinations receiving the same cleaned encode.
+    pub also_platforms: Vec<Platform>,
     /// Real name, town, school, employer, family names... Local only.
     pub private_terms: Vec<String>,
     /// Extra rules passed to the context judge ("don't mention my ex by name").
@@ -65,6 +67,7 @@ impl Default for SessionConfig {
         SessionConfig {
             policy: Policy::default(),
             platform: Platform::Twitch,
+            also_platforms: Vec::new(),
             private_terms: vec![],
             streamer_rules: vec![],
             profanity_list: DEFAULT_PROFANITY.into(),
@@ -404,6 +407,7 @@ impl Session {
             words: &window.words,
             focus_start: window.focus_start,
             platform: self.cfg.platform,
+            also: &self.cfg.also_platforms,
             delay: self.hold(),
             streamer_rules: &self.cfg.streamer_rules,
         }

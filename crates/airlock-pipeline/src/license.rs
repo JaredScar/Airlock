@@ -1,5 +1,6 @@
-//! Offline license check. Wordlist bleeps, the dump button, and spoken PII work
-//! without a key. The context judge, screen scanning, and cloud providers need Pro.
+//! Offline license check. Wordlist bleeps, the dump button, spoken PII, and one
+//! destination work without a key. The context judge, screen scanning, cloud
+//! providers, and a second destination need Pro.
 //!
 //! The signing key in this crate is a development key. Pricing is still an open
 //! question, so this is the check, not a store.
@@ -21,6 +22,8 @@ pub enum Feature {
     CloudJudge,
     /// Cloud speech recognition. Pro, and only after explicit consent.
     CloudSpeech,
+    /// More than one destination in the same session.
+    Multistream,
 }
 
 /// Signs a development Pro license. The key ships with the repo until pricing exists.
@@ -35,7 +38,8 @@ pub fn allows(license: &str, feature: Feature) -> bool {
         Feature::ContextJudge
         | Feature::ScreenScan
         | Feature::CloudJudge
-        | Feature::CloudSpeech => is_pro(license),
+        | Feature::CloudSpeech
+        | Feature::Multistream => is_pro(license),
     }
 }
 
@@ -68,6 +72,8 @@ mod tests {
         assert!(allows(&key, Feature::CloudJudge));
         assert!(!allows("", Feature::CloudSpeech));
         assert!(allows(&key, Feature::CloudSpeech));
+        assert!(!allows("", Feature::Multistream));
+        assert!(allows(&key, Feature::Multistream));
         assert!(!key.contains("Springfield"));
     }
 }

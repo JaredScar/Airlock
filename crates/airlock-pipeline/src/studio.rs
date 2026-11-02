@@ -1,10 +1,11 @@
 //! What the streamer configures before a session.
 //!
-//! One destination platform per session. Airlock's platform pack stays a versioned
-//! file. The streamer's own rules are stored per platform, and only the selected
-//! platform's list is sent to the judge. Private terms stay on the machine.
+//! Several destinations can receive the same cleaned stream. A second destination
+//! needs Pro. Airlock's platform packs stay versioned files. The streamer's own
+//! rules are stored per platform, and every destination being published is included
+//! in the judge prompt. Private terms stay on the machine.
 
-use crate::{DEFAULT_ALLOWLIST, DEFAULT_PROFANITY, SessionConfig};
+use crate::{DEFAULT_ALLOWLIST, DEFAULT_PROFANITY, Feature, SessionConfig, allows};
 use airlock_core::{Platform, Policy};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -12,7 +13,11 @@ use ts_rs::TS;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct StudioSettings {
+    /// The platform whose stream key and rules are on screen.
     pub platform: Platform,
+    /// Destinations that receive the cleaned stream. Empty means `platform` only.
+    #[serde(default)]
+    pub destinations: Vec<Platform>,
     /// The streamer's own judge rules, per destination. Not the shipped pack.
     pub rules_twitch: Vec<String>,
     pub rules_youtube: Vec<String>,
@@ -75,6 +80,7 @@ impl Default for StudioSettings {
     fn default() -> Self {
         StudioSettings {
             platform: Platform::Twitch,
+            destinations: Vec::new(),
             rules_twitch: vec![],
             rules_youtube: vec![],
             rules_kick: vec![],
@@ -100,7 +106,54 @@ impl Default for StudioSettings {
 
 impl StudioSettings {
     pub fn active_rules(&self) -> &[String] {
-        match self.platform {
+        self.rules_of(self.platform)
+    }
+
+    /// Platforms the streamer asked to publish to, before the license check.
+    pub fn saved_destinations(&self) -> Vec<Platform> {
+        let source = if self.destinations.is_empty() {
+            vec![self.platform]
+        } else {
+            self.destinations.clone()
+        };
+        let mut out = Vec::new();
+        for platform in source {
+            if is_destination(platform) && !out.contains(&platform) {
+                out.push(platform);
+            }
+        }
+        out
+    }
+
+    /// Platforms this session publishes. Without Pro, only one remains.
+    pub fn publish_platforms(&self) -> Vec<Platform> {
+        let saved = self.saved_destinations();
+        if saved.len() > 1 && !allows(&self.license_key, Feature::Multistream) {
+            if saved.contains(&self.platform) {
+                return vec![self.platform];
+            }
+            return vec![saved[0]];
+        }
+        saved
+    }
+
+    /// Streamer rules for every platform in `platforms`, in that order, without duplicates.
+    pub fn rules_for(&self, platforms: &[Platform]) -> Vec<String> {
+        let mut out = Vec::new();
+        for platform in platforms {
+            for rule in self.rules_of(*platform) {
+                let rule = rule.trim();
+                if rule.is_empty() || out.iter().any(|kept: &String| kept == rule) {
+                    continue;
+                }
+                out.push(rule.to_string());
+            }
+        }
+        out
+    }
+
+    fn rules_of(&self, platform: Platform) -> &[String] {
+        match platform {
             Platform::Twitch => &self.rules_twitch,
             Platform::Youtube => &self.rules_youtube,
             Platform::Kick => &self.rules_kick,
@@ -111,16 +164,27 @@ impl StudioSettings {
     /// Builds the session the next broadcast uses. Rejects a policy the engine would refuse.
     pub fn session_config(&self) -> Result<SessionConfig, String> {
         self.policy.validate().map_err(|e| e.to_string())?;
+        let platforms = self.publish_platforms();
+        let platform = platforms.first().copied().unwrap_or(self.platform);
+        let also_platforms = platforms.into_iter().skip(1).collect();
         Ok(SessionConfig {
             policy: self.policy.clone(),
-            platform: self.platform,
+            platform,
+            also_platforms,
             private_terms: tidy(&self.private_terms),
-            streamer_rules: tidy(self.active_rules()),
+            streamer_rules: self.rules_for(&self.publish_platforms()),
             profanity_list: append_lines(DEFAULT_PROFANITY, &self.extra_profanity),
             allowlist: append_lines(DEFAULT_ALLOWLIST, &self.extra_allow),
             ..SessionConfig::default()
         })
     }
+}
+
+fn is_destination(platform: Platform) -> bool {
+    matches!(
+        platform,
+        Platform::Twitch | Platform::Youtube | Platform::Kick
+    )
 }
 
 fn tidy(items: &[String]) -> Vec<String> {

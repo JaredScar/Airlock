@@ -8,6 +8,7 @@ const STORAGE_KEY = 'airlock.studio.v1';
 /** Mirrors `Policy::default()` and `StudioSettings::default()`. */
 export const DEFAULT_STUDIO: StudioSettings = {
   platform: 'twitch',
+  destinations: [],
   rules_twitch: [],
   rules_youtube: [],
   rules_kick: [],
@@ -75,8 +76,58 @@ export class StudioService {
   }
 
   choosePlatform(platform: StudioSettings['platform']) {
-    this.commit({ ...this.settings(), platform });
+    this.focusDestination(platform);
+  }
+
+  selectedDestinations(): Array<'twitch' | 'youtube' | 'kick'> {
+    const saved = this.settings().destinations.filter((id) => id === 'twitch' || id === 'youtube' || id === 'kick');
+    if (saved.length) return saved;
+    const platform = this.settings().platform;
+    if (platform === 'twitch' || platform === 'youtube' || platform === 'kick') return [platform];
+    return ['twitch'];
+  }
+
+  isDestination(id: 'twitch' | 'youtube' | 'kick'): boolean {
+    return this.selectedDestinations().includes(id);
+  }
+
+  destinationLabel(): string {
+    const names = { twitch: 'Twitch', youtube: 'YouTube', kick: 'Kick' } as const;
+    const list = this.selectedDestinations().map((id) => names[id]);
+    if (list.length <= 1) return list[0] ?? 'Twitch';
+    if (list.length === 2) return `${list[0]} and ${list[1]}`;
+    return `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
+  }
+
+  /** Returns false when the checkbox should stay as it was. */
+  setDestination(id: 'twitch' | 'youtube' | 'kick', on: boolean): boolean {
+    const current = this.selectedDestinations();
+    if (on) {
+      const adding = !current.includes(id);
+      const destinations = !adding ? current : this.pro() ? [...current, id] : [id];
+      if (adding && !this.pro() && current.length > 0) {
+        this.error.set('A second destination needs Pro, so this switches the one destination.');
+      }
+      this.commit({ ...this.settings(), destinations, platform: id });
+    } else {
+      const destinations = current.filter((item) => item !== id);
+      if (!destinations.length) {
+        this.error.set('Keep at least one destination.');
+        return false;
+      }
+      const platform = this.settings().platform === id ? destinations[0] : this.settings().platform;
+      this.commit({ ...this.settings(), destinations, platform });
+    }
     void this.refreshStreamKey();
+    void this.refreshPack();
+    return true;
+  }
+
+  focusDestination(platform: StudioSettings['platform']) {
+    const destinations = this.selectedDestinations();
+    this.commit({ ...this.settings(), platform, destinations });
+    void this.refreshStreamKey();
+    void this.refreshPack();
   }
 
   async saveStreamKey(key: string) {
@@ -433,6 +484,7 @@ function loadStudio(): StudioSettings {
       start_with_obs: parsed.start_with_obs ?? true,
       scan_always: parsed.scan_always ?? [],
       scan_never: parsed.scan_never ?? [],
+      destinations: (parsed.destinations ?? []).filter((id) => id === 'twitch' || id === 'youtube' || id === 'kick'),
       policy: {
         ...base.policy,
         ...parsed.policy,

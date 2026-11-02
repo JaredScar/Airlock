@@ -221,6 +221,7 @@ mod tests {
             words: ws,
             focus_start: 2,
             platform: Platform::Twitch,
+            also: &[],
             delay: Dur::from_millis(8_000),
             streamer_rules: &[],
         }

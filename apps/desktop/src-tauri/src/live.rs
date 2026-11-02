@@ -13,7 +13,7 @@ use airlock_asr::{
 use airlock_core::{Dur, Platform, StallFallback, Ts};
 use airlock_llm::{AnthropicJudge, ContextJudge, JudgeRequest, OllamaJudge};
 use airlock_media::{
-    AudioHold, DelayedForward, ForwardStep, INGEST_PORT, VideoHold, key_account, platform_name,
+    AudioHold, DelayedForward, INGEST_PORT, PublishTarget, VideoHold, key_account, platform_name,
     publish_base, secure_publish_url, serve_capture,
 };
 use airlock_pipeline::{Feature, JudgeScheduler, JudgeWindow, Session, UiEvent, allows};
@@ -41,8 +41,27 @@ pub fn start(
         } else {
             None
         };
-    let rules = settings.active_rules().to_vec();
-    let forward_url = publish_target(platform);
+    let selected = settings.publish_platforms();
+    let limited = settings.saved_destinations().len() > selected.len();
+    let mut ready_names = Vec::new();
+    let mut missing_names = Vec::new();
+    let mut targets = Vec::new();
+    for destination in &selected {
+        let name = platform_name(*destination).to_string();
+        match publish_target(*destination) {
+            Some(url) => {
+                targets.push(PublishTarget {
+                    url,
+                    name: name.clone(),
+                });
+                ready_names.push(name);
+            }
+            None => missing_names.push(name),
+        }
+    }
+    let primary = selected.first().copied().unwrap_or(platform);
+    let also: Vec<Platform> = selected.iter().copied().skip(1).collect();
+    let rules = settings.rules_for(&selected);
     let dir = app.path().app_data_dir().map_err(|err| err.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
     std::thread::spawn(move || {
@@ -78,8 +97,11 @@ pub fn start(
                     Arc::clone(&slot),
                     Arc::clone(&generation),
                     mine,
-                    platform,
-                    rules,
+                    JudgeTarget {
+                        platform: primary,
+                        also,
+                        rules,
+                    },
                     cloud,
                 )
             });
@@ -103,27 +125,20 @@ pub fn start(
             );
             None
         };
-        let forwarding = forward_url.is_some();
+        let forwarding = !targets.is_empty();
         let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected: false });
         let _ = app.emit(
             EVENT_CHANNEL,
             &UiEvent::Egress {
                 active: false,
-                detail: if forwarding {
-                    format!("Waiting to forward to {}.", platform_name(platform))
-                } else {
-                    format!(
-                        "Save a stream key in Settings. This broadcast stays on this PC and is not sent to {}.",
-                        platform_name(platform)
-                    )
-                },
+                detail: waiting_detail(&ready_names, &missing_names, limited, platform),
             },
         );
         let delayed = Arc::new(Mutex::new(Vec::<f32>::new()));
         let media = Arc::new(Mutex::new(LiveMedia {
             audio: AudioHold::new(delay),
             video: VideoHold::new(delay),
-            forward: DelayedForward::new(forward_url),
+            forward: DelayedForward::new(targets),
         }));
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
@@ -186,26 +201,16 @@ pub fn start(
                 if let Ok(mut delayed) = delayed_pcm.lock() {
                     delayed.extend_from_slice(&samples);
                 }
-                match media.forward.write(&pictures, &samples) {
-                    Ok(ForwardStep::Started) => {
-                        let _ = app_pcm.emit(
-                            EVENT_CHANNEL,
-                            &UiEvent::Egress {
-                                active: true,
-                                detail: format!("Forwarding to {}.", platform_name(platform)),
-                            },
-                        );
-                    }
-                    Err(detail) => {
-                        let _ = app_pcm.emit(
-                            EVENT_CHANNEL,
-                            &UiEvent::Egress {
-                                active: false,
-                                detail,
-                            },
-                        );
-                    }
-                    Ok(_) => {}
+                let report = media.forward.write(&pictures, &samples);
+                if !report.started.is_empty() || !report.failed.is_empty() {
+                    let connected = media.forward.connected_names();
+                    let _ = app_pcm.emit(
+                        EVENT_CHANNEL,
+                        &UiEvent::Egress {
+                            active: !connected.is_empty(),
+                            detail: forward_detail(&connected, &report.failed),
+                        },
+                    );
                 }
                 for event in session.drain_events() {
                     let _ = app_pcm.emit(EVENT_CHANNEL, &event);
@@ -225,7 +230,10 @@ pub fn start(
                 EVENT_CHANNEL,
                 &UiEvent::Egress {
                     active: false,
-                    detail: format!("Forwarding to {} stopped.", platform_name(platform)),
+                    detail: format!(
+                        "Forwarding to {} stopped.",
+                        destination_sentence(&ready_names)
+                    ),
                 },
             );
         }
@@ -461,18 +469,28 @@ impl LiveJudge {
     }
 }
 
+struct JudgeTarget {
+    platform: Platform,
+    also: Vec<Platform>,
+    rules: Vec<String>,
+}
+
 fn spawn_judge(
     app: AppHandle,
     slot: Arc<Mutex<Option<Session>>>,
     generation: Arc<AtomicU64>,
     mine: u64,
-    platform: Platform,
-    rules: Vec<String>,
+    target: JudgeTarget,
     cloud: bool,
 ) -> JudgeHook {
     let (tx, rx) = std::sync::mpsc::channel();
     let sched = Arc::new(Mutex::new(JudgeScheduler::default()));
     let sched_loop = Arc::clone(&sched);
+    let JudgeTarget {
+        platform,
+        also,
+        rules,
+    } = target;
     std::thread::spawn(move || {
         judge_loop(
             JudgeLoop {
@@ -481,6 +499,7 @@ fn spawn_judge(
                 generation,
                 mine,
                 platform,
+                also,
                 rules,
                 cloud,
                 sched: sched_loop,
@@ -497,6 +516,7 @@ struct JudgeLoop {
     generation: Arc<AtomicU64>,
     mine: u64,
     platform: Platform,
+    also: Vec<Platform>,
     rules: Vec<String>,
     cloud: bool,
     sched: Arc<Mutex<JudgeScheduler>>,
@@ -509,6 +529,7 @@ fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
         generation,
         mine,
         platform,
+        also,
         rules,
         cloud,
         sched,
@@ -532,6 +553,7 @@ fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
             words: &job.window.words,
             focus_start: job.window.focus_start,
             platform,
+            also: &also,
             delay: job.delay,
             streamer_rules: &rules,
         };
@@ -556,6 +578,65 @@ fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
         session.on_judge_result(&job.window, detections);
         for event in session.drain_events() {
             let _ = app.emit(EVENT_CHANNEL, &event);
+        }
+    }
+}
+
+fn waiting_detail(
+    ready: &[String],
+    missing: &[String],
+    limited: bool,
+    fallback: Platform,
+) -> String {
+    if ready.is_empty() {
+        let who = if missing.is_empty() {
+            platform_name(fallback).to_string()
+        } else {
+            destination_sentence(missing)
+        };
+        return format!(
+            "Save a stream key in Settings. This broadcast stays on this PC and is not sent to {who}."
+        );
+    }
+    let mut text = format!("Waiting to forward to {}.", destination_sentence(ready));
+    if !missing.is_empty() {
+        let verb = if missing.len() == 1 { "has" } else { "have" };
+        text.push_str(&format!(
+            " {} {verb} no stream key saved.",
+            destination_sentence(missing)
+        ));
+    }
+    if limited {
+        text.push_str(" A second destination needs Pro.");
+    }
+    text
+}
+
+fn forward_detail(connected: &[String], failed: &[String]) -> String {
+    if connected.is_empty() {
+        if failed.is_empty() {
+            "Forwarding stopped.".into()
+        } else {
+            failed.join(" ")
+        }
+    } else {
+        let mut text = format!("Forwarding to {}.", destination_sentence(connected));
+        if !failed.is_empty() {
+            text.push(' ');
+            text.push_str(&failed.join(" "));
+        }
+        text
+    }
+}
+
+fn destination_sentence(names: &[String]) -> String {
+    match names.len() {
+        0 => "the platform".into(),
+        1 => names[0].clone(),
+        2 => format!("{} and {}", names[0], names[1]),
+        _ => {
+            let last = names.last().map(String::as_str).unwrap_or("the platform");
+            format!("{}, and {last}", names[..names.len() - 1].join(", "))
         }
     }
 }

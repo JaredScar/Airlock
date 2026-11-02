@@ -2,18 +2,18 @@
   <section class="panel">
     <header class="panel-head">
       <h2>Platform</h2>
-      <p class="hint">One destination per session. Airlock's pack is fixed. Your rules are yours, and only this platform's list goes to the judge.</p>
+      <p class="hint">Check every destination for this broadcast. Edit shows that platform's key and rules. Without Pro, checking a platform switches the one destination. With Pro, each checked platform gets the same cleaned stream.</p>
     </header>
     <div class="scroll settings-body">
-      <div class="platforms" role="radiogroup" aria-label="Destination platform">
+      <div class="platforms" role="group" aria-label="Destinations">
         @for (id of destinations; track id) {
-          <button
-            class="platform"
-            [class.on]="studio.settings().platform === id"
-            role="radio"
-            [attr.aria-checked]="studio.settings().platform === id"
-            (click)="studio.choosePlatform(id)"
-          >{{ names[id] }}</button>
+          <div class="platform-pick">
+            <label>
+              <input type="checkbox" [checked]="studio.isDestination(id)" (change)="onDestination(id, $event)" [attr.aria-label]="'Send to ' + names[id]" />
+              {{ names[id] }}
+            </label>
+            <button type="button" class="ghost" [class.on]="studio.settings().platform === id" (click)="studio.focusDestination(id)" [attr.aria-pressed]="studio.settings().platform === id" [attr.aria-label]="'Edit ' + names[id] + ' key and rules'">Edit</button>
+          </div>
         }
       </div>
       <p class="pack">{{ studio.pack() }}</p>
@@ -213,7 +213,7 @@
         <li>Speech recognition stays on this PC unless "Audio may be sent to Deepgram for speech recognition" is checked, a Pro license is saved, and a Deepgram key is in the OS keychain.</li>
         <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
         <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
-        <li>A stream key stays in the OS keychain. It is not written into settings or logs. When one is saved, Go live sends the held picture and sound to that platform.</li>
+        <li>A stream key stays in the OS keychain. It is not written into settings or logs. Go live sends the held picture and sound to each destination that has a key saved.</li>
         <li>Crash and latency reports stay off unless you opt in below, and they never include the transcript or a key. No destination is configured, so nothing is sent.</li>
       </ul>
       <label class="stall">
