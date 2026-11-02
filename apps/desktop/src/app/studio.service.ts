@@ -23,6 +23,8 @@ export const DEFAULT_STUDIO: StudioSettings = {
   license_key: '',
   telemetry_opt_in: false,
   start_with_obs: true,
+  scan_always: [],
+  scan_never: [],
   policy: {
     delay_ms: 8000,
     merge_gap_ms: 250,
@@ -49,6 +51,10 @@ export class StudioService {
   readonly modelProgress = signal<number | null>(null);
   readonly modelNote = signal('The file is kept only after its checksum matches.');
   readonly streamKeySaved = signal(false);
+  readonly obsSources = signal<string[]>([]);
+  readonly obsTargets = signal<string[]>([]);
+  readonly obsNote = signal('Save the OBS WebSocket password, then refresh the source list.');
+  readonly obsPasswordSaved = signal(false);
   readonly licenseNote = signal('Paste a Pro license and press Save license.');
   readonly pro = signal(false);
 
@@ -228,6 +234,59 @@ export class StudioService {
     this.commit({ ...this.settings(), start_with_obs });
   }
 
+  setSourceScan(name: string, mode: 'always' | 'never' | 'default') {
+    const drop = (list: string[]) => list.filter((item) => item.toLowerCase() !== name.toLowerCase());
+    let scan_always = drop(this.settings().scan_always);
+    let scan_never = drop(this.settings().scan_never);
+    if (mode === 'always') scan_always = [...scan_always, name];
+    if (mode === 'never') scan_never = [...scan_never, name];
+    this.commit({ ...this.settings(), scan_always, scan_never });
+    void this.refreshObsSources();
+  }
+
+  sourceMode(name: string): 'always' | 'never' | 'default' {
+    const lower = name.toLowerCase();
+    if (this.settings().scan_never.some((item) => item.toLowerCase() === lower)) return 'never';
+    if (this.settings().scan_always.some((item) => item.toLowerCase() === lower)) return 'always';
+    return 'default';
+  }
+
+  async saveObsPassword(password: string) {
+    if (!inDesktopShell()) {
+      this.obsNote.set('Open the Airlock app to save the OBS WebSocket password.');
+      return;
+    }
+    try {
+      await invoke('set_obs_password', { password });
+      this.obsPasswordSaved.set(true);
+      this.obsNote.set('OBS WebSocket password saved in the OS keychain.');
+      this.error.set(null);
+    } catch (e) {
+      this.obsNote.set(String(e));
+    }
+  }
+
+  async refreshObsSources() {
+    if (!inDesktopShell()) {
+      this.obsNote.set('Open the Airlock app to read OBS scenes.');
+      return;
+    }
+    try {
+      const listed = await invoke<{ names: string[]; targets: string[] }>('list_obs_sources');
+      this.obsSources.set(listed.names);
+      this.obsTargets.set(listed.targets);
+      this.obsPasswordSaved.set(true);
+      this.obsNote.set(
+        listed.names.length
+          ? `Will scan ${listed.targets.join(', ') || 'nothing'}.`
+          : 'OBS returned no sources.',
+      );
+      this.error.set(null);
+    } catch (e) {
+      this.obsNote.set(String(e));
+    }
+  }
+
   setShortcut(which: 'veto' | 'approve' | 'dump' | 'safe', value: string) {
     const shortcut = value.trim() || DEFAULT_STUDIO[`shortcut_${which}`];
     this.commit({ ...this.settings(), [`shortcut_${which}`]: shortcut });
@@ -372,6 +431,8 @@ function loadStudio(): StudioSettings {
       license_key: parsed.license_key ?? '',
       telemetry_opt_in: parsed.telemetry_opt_in ?? false,
       start_with_obs: parsed.start_with_obs ?? true,
+      scan_always: parsed.scan_always ?? [],
+      scan_never: parsed.scan_never ?? [],
       policy: {
         ...base.policy,
         ...parsed.policy,

@@ -47,6 +47,12 @@ pub struct StudioSettings {
     /// Open the local listener when OBS Studio's process appears.
     #[serde(default = "start_with_obs_default")]
     pub start_with_obs: bool,
+    /// OBS source names that are screenshotted even when they are not on the program scene.
+    #[serde(default)]
+    pub scan_always: Vec<String>,
+    /// OBS source names that are never screenshotted.
+    #[serde(default)]
+    pub scan_never: Vec<String>,
 }
 
 fn shortcut_veto() -> String {
@@ -86,6 +92,8 @@ impl Default for StudioSettings {
             license_key: String::new(),
             telemetry_opt_in: false,
             start_with_obs: true,
+            scan_always: Vec::new(),
+            scan_never: Vec::new(),
         }
     }
 }

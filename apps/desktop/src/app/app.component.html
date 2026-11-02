@@ -35,6 +35,7 @@
   <div class="actions">
     <nav class="views" aria-label="Views">
       <button [class.on]="page() === 'live'" (click)="page.set('live')">On air</button>
+      <button [class.on]="page() === 'setup'" (click)="page.set('setup')">Setup</button>
       <button [class.on]="page() === 'settings'" (click)="page.set('settings')">Settings</button>
     </nav>
     <button [class.on]="compact()" [attr.aria-pressed]="compact()" (click)="toggleCompact()">Compact</button>
@@ -59,6 +60,8 @@
 
 @if (page() === 'settings') {
   <app-settings />
+} @else if (page() === 'setup') {
+  <app-wizard />
 } @else {
 <details class="setup">
   <summary>

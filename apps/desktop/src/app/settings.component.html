@@ -25,6 +25,28 @@
       <label class="stall">
         <span><input type="checkbox" [checked]="studio.settings().start_with_obs" (change)="onStartWithObs($event)" /> Start the listener when OBS opens</span>
       </label>
+      <h3>On-screen sources</h3>
+      <p class="hint">Turn on OBS's WebSocket server (Tools → WebSocket Server Settings). Never scan skips a source such as gameplay. Always scan screenshots a source even when it is not the program scene.</p>
+      <form class="add" (submit)="$event.preventDefault(); saveObsPassword()">
+        <input type="password" autocomplete="off" [value]="obsPasswordDraft()" (input)="onObsPassword($event)" placeholder="OBS WebSocket password" aria-label="OBS WebSocket password" />
+        <button type="submit">Save OBS password</button>
+      </form>
+      <p class="hint">{{ studio.obsNote() }}</p>
+      <button type="button" (click)="studio.refreshObsSources()">Refresh sources</button>
+      <ul class="chips">
+        @for (name of studio.obsSources(); track name) {
+          <li>
+            <span>{{ name }}</span>
+            <select [value]="studio.sourceMode(name)" (change)="onSourceScan(name, $event)" [attr.aria-label]="'Scan ' + name">
+              <option value="default">Default</option>
+              <option value="always">Always scan</option>
+              <option value="never">Never scan</option>
+            </select>
+          </li>
+        } @empty {
+          <li class="muted">No sources yet.</li>
+        }
+      </ul>
       <h3>Your rules for {{ platformName() }}</h3>
       <ul class="chips">
         @for (rule of studio.rulesFor(); track $index) {

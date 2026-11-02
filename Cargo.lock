@@ -101,13 +101,16 @@ dependencies = [
  "airlock-llm",
  "airlock-media",
  "airlock-pipeline",
+ "base64 0.22.1",
  "keyring",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
+ "tungstenite",
 ]
 
 [[package]]

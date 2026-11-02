@@ -32,7 +32,7 @@ These stay open until the thing named here exists. None of them block a normal b
 
 - [x] **2.2** Install the CUDA toolkit if you want Whisper on the GPU. Today it runs `small.en` on the CPU. The bar is a word finalized within 1.5 seconds on this RTX 5090.
 - [ ] **2.6** A licensed slur list. `config/wordlists/slurs.txt` stays empty on purpose. Extra profanity and allowlist lines are already in Settings.
-- [ ] **4.6, 5.3** OBS is installed. Scene names and automatic encoder setup still need obs-websocket (built into OBS 28+). If you set a websocket password, enter it in the app, not in chat. **5.8** is done: the tray is in, and the listener can start when OBS opens.
+- [x] **4.6, 5.3** OBS WebSocket is on. Settings can mark sources always-scan or never-scan. Setup can point OBS at the local ingest. The WebSocket password goes in the app, not in chat.
 - [ ] **6.2 and 3.8** A recording of real speech over game noise. The eval clips already cover a swear, a phone number, and a threat. The 0.85 ToS-risk score waits on that recording.
 - [ ] **8.1** A code-signing certificate and an update host. An unsigned Windows installer already exists.
 - [ ] **8.2** A Mac, for the Mac build and Apple Vision text recognition.

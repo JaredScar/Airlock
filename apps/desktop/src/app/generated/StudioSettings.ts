@@ -38,4 +38,12 @@ telemetry_opt_in: boolean,
 /**
  * Open the local listener when OBS Studio's process appears.
  */
-start_with_obs: boolean, };
+start_with_obs: boolean, 
+/**
+ * OBS source names that are screenshotted even when they are not on the program scene.
+ */
+scan_always: Array<string>, 
+/**
+ * OBS source names that are never screenshotted.
+ */
+scan_never: Array<string>, };

@@ -33,6 +33,7 @@ export class SettingsComponent {
   readonly speechKeyDraft = signal('');
   readonly licenseDraft = signal('');
   readonly streamKeyDraft = signal('');
+  readonly obsPasswordDraft = signal('');
   readonly shortcuts = [
     { id: 'veto' as const, label: 'Veto next' },
     { id: 'approve' as const, label: 'Approve next' },
@@ -203,6 +204,25 @@ export class SettingsComponent {
   onStartWithObs(event: Event) {
     const input = event.target;
     if (input instanceof HTMLInputElement) this.studio.setStartWithObs(input.checked);
+  }
+
+  onObsPassword(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.obsPasswordDraft.set(input.value);
+  }
+
+  saveObsPassword() {
+    void this.studio.saveObsPassword(this.obsPasswordDraft());
+    this.obsPasswordDraft.set('');
+  }
+
+  onSourceScan(name: string, event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLSelectElement)) return;
+    const value = input.value;
+    if (value === 'always' || value === 'never' || value === 'default') {
+      this.studio.setSourceScan(name, value);
+    }
   }
 
   shortcutValue(id: 'veto' | 'approve' | 'dump' | 'safe'): string {

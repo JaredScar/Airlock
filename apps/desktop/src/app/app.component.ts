@@ -5,11 +5,12 @@ import { listen } from '@tauri-apps/api/event';
 import { AirlockService, IncidentFormat, inDesktopShell } from './airlock.service';
 import { CATEGORY_LABEL, Redaction, isActive, transcriptStates } from './airlock.types';
 import { SettingsComponent } from './settings.component';
+import { WizardComponent } from './wizard.component';
 import { StudioService } from './studio.service';
 
 @Component({
   selector: 'app-root',
-  imports: [DecimalPipe, SettingsComponent],
+  imports: [DecimalPipe, SettingsComponent, WizardComponent],
   templateUrl: './app.component.html',
   host: {
     '[class.compact]': 'compact()',
@@ -21,7 +22,7 @@ export class AppComponent {
   readonly label = CATEGORY_LABEL;
   readonly isActive = isActive;
   readonly desktop = inDesktopShell();
-  readonly page = signal<'live' | 'settings'>('live');
+  readonly page = signal<'live' | 'settings' | 'setup'>('live');
   readonly compact = signal(false);
   readonly light = signal(false);
   readonly safe = signal(false);

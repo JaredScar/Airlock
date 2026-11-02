@@ -8,6 +8,7 @@ mod demo;
 mod keys;
 mod live;
 mod obs;
+mod obs_ws;
 
 use airlock_core::{Platform, RedactionId};
 use airlock_media::key_account;
@@ -75,6 +76,71 @@ fn license_is_pro(key: String) -> bool {
 #[tauri::command]
 fn set_cloud_key(key: String) -> Result<(), String> {
     keys::store_cloud_key(&key)
+}
+
+#[tauri::command]
+fn set_obs_password(password: String) -> Result<(), String> {
+    keys::store_obs_password(&password)
+}
+
+#[tauri::command]
+fn obs_password_saved() -> Result<bool, String> {
+    keys::obs_password_is_saved()
+}
+
+#[derive(serde::Serialize)]
+struct ObsSourceList {
+    names: Vec<String>,
+    targets: Vec<String>,
+}
+
+#[tauri::command]
+fn list_obs_sources(state: State<'_, AppState>) -> Result<ObsSourceList, String> {
+    let password = keys::load_obs_password()?;
+    let mut remote = obs_ws::ObsRemote::connect(obs_ws::DEFAULT_URL, &password)?;
+    let names = remote.list_sources()?;
+    let settings = state
+        .studio
+        .lock()
+        .map_err(|_| "settings lock poisoned".to_string())?;
+    let targets =
+        airlock_pipeline::screenshot_targets(&names, &settings.scan_always, &settings.scan_never);
+    Ok(ObsSourceList { names, targets })
+}
+
+#[derive(serde::Serialize)]
+struct MachineSetup {
+    gpu_mb: Option<u64>,
+    model: String,
+}
+
+#[tauri::command]
+fn machine_setup(app: AppHandle) -> MachineSetup {
+    let gpu_mb = detect_vram_mb();
+    let whisper = airlock_asr::runtime_speech_model(gpu_mb)
+        .file_name()
+        .to_string();
+    let parakeet = app.path().app_data_dir().ok().is_some_and(|dir| {
+        airlock_asr::parakeet_ready(&dir.join("models").join(airlock_asr::PARAKEET_DIR))
+    });
+    let model = if cfg!(feature = "cuda") && parakeet {
+        airlock_asr::PARAKEET_DIR.to_string()
+    } else {
+        whisper
+    };
+    MachineSetup { gpu_mb, model }
+}
+
+#[tauri::command]
+fn configure_obs_ingest() -> Result<(), String> {
+    let password = keys::load_obs_password()?;
+    let mut remote = obs_ws::ObsRemote::connect(obs_ws::DEFAULT_URL, &password)?;
+    let server = format!("rtmp://127.0.0.1:{}/live", airlock_media::INGEST_PORT);
+    remote.set_custom_ingest(&server, airlock_media::INGEST_KEY)?;
+    if !remote.custom_ingest_matches(&server, airlock_media::INGEST_KEY)? {
+        return Err("OBS did not keep the local ingest".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -428,6 +494,11 @@ pub fn run() {
             set_studio_settings,
             license_is_pro,
             set_cloud_key,
+            set_obs_password,
+            obs_password_saved,
+            list_obs_sources,
+            machine_setup,
+            configure_obs_ingest,
             set_speech_key,
             set_stream_key,
             has_stream_key,
