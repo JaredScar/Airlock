@@ -101,6 +101,7 @@ dependencies = [
  "airlock-llm",
  "airlock-media",
  "airlock-pipeline",
+ "airlock-vision",
  "base64 0.22.1",
  "keyring",
  "serde",

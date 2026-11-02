@@ -29,7 +29,11 @@ airlock-media.workspace = true
 airlock-pipeline.workspace = true
 airlock-llm.workspace = true
 airlock-asr = { workspace = true, features = ["whisper"] }
+airlock-vision = { workspace = true }
 keyring = { version = "3", features = ["windows-native"] }
 base64 = "0.22"
 sha2 = "0.10"
 tungstenite = "0.26"
+
+[target.'cfg(windows)'.dependencies]
+airlock-vision = { workspace = true, features = ["winocr"] }

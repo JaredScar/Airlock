@@ -148,30 +148,94 @@ pub fn serve(
     Ok(())
 }
 
+/// One analysis frame from the publisher, stamped on the same clock as the audio.
+/// 640×360 BGRA, four frames a second.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiveFrame {
+    pub ts: Ts,
+    pub width: u32,
+    pub height: u32,
+    pub bgra: Vec<u8>,
+}
+
+pub const FRAME_WIDTH: u32 = 640;
+pub const FRAME_HEIGHT: u32 = 360;
+const FRAME_INTERVAL_US: i64 = 250_000;
+
 /// Listens until `stop`, copying each publisher to an flv and decoding its audio
 /// to 48 kHz stereo. PCM timestamps continue across a reconnect.
 pub fn serve_capture(
     port: u16,
     directory: &Path,
     stop: &AtomicBool,
-    mut on_connection: impl FnMut(bool),
-    mut on_video: impl FnMut(VideoPacket),
-    mut on_pcm: impl FnMut(Pcm),
+    on_connection: impl FnMut(bool),
+    on_video: impl FnMut(VideoPacket),
+    on_pcm: impl FnMut(Pcm),
 ) -> Result<(), MediaError> {
+    capture_sessions(
+        port,
+        directory,
+        stop,
+        IngestHandlers {
+            on_connection,
+            on_video,
+            on_pcm,
+            on_frame: |_| {},
+            sample_frames: false,
+        },
+    )
+}
+
+/// Same as [`serve_capture`], and also emits a 4 fps BGRA tap on the audio clock.
+pub fn serve_capture_frames(
+    port: u16,
+    directory: &Path,
+    stop: &AtomicBool,
+    on_connection: impl FnMut(bool),
+    on_video: impl FnMut(VideoPacket),
+    on_pcm: impl FnMut(Pcm),
+    on_frame: impl FnMut(LiveFrame) + Send,
+) -> Result<(), MediaError> {
+    capture_sessions(
+        port,
+        directory,
+        stop,
+        IngestHandlers {
+            on_connection,
+            on_video,
+            on_pcm,
+            on_frame,
+            sample_frames: true,
+        },
+    )
+}
+
+struct IngestHandlers<C, V, P, F> {
+    on_connection: C,
+    on_video: V,
+    on_pcm: P,
+    on_frame: F,
+    sample_frames: bool,
+}
+
+fn capture_sessions<C, V, P, F>(
+    port: u16,
+    directory: &Path,
+    stop: &AtomicBool,
+    mut handlers: IngestHandlers<C, V, P, F>,
+) -> Result<(), MediaError>
+where
+    C: FnMut(bool),
+    V: FnMut(VideoPacket),
+    P: FnMut(Pcm),
+    F: FnMut(LiveFrame) + Send,
+{
     std::fs::create_dir_all(directory).map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
     let mut clock = PtsClock::default();
     let mut n = 0u32;
     while !stop.load(Ordering::SeqCst) {
         let path = directory.join(format!("ingest-{n}.flv"));
-        match capture_one(
-            port,
-            &path,
-            stop,
-            &mut clock,
-            &mut on_connection,
-            &mut on_video,
-            &mut on_pcm,
-        ) {
+        match capture_one(port, &path, stop, &mut clock, &mut handlers) {
             Ok(()) => n = n.saturating_add(1),
             Err(MediaError::FfmpegMissing) => return Err(MediaError::FfmpegMissing),
             Err(_) if stop.load(Ordering::SeqCst) => break,
@@ -181,15 +245,24 @@ pub fn serve_capture(
     Ok(())
 }
 
-fn capture_one(
+fn capture_one<C, V, P, F>(
     port: u16,
     flv: &Path,
     stop: &AtomicBool,
     clock: &mut PtsClock,
-    on_connection: &mut impl FnMut(bool),
-    on_video: &mut impl FnMut(VideoPacket),
-    on_pcm: &mut impl FnMut(Pcm),
-) -> Result<(), MediaError> {
+    handlers: &mut IngestHandlers<C, V, P, F>,
+) -> Result<(), MediaError>
+where
+    C: FnMut(bool),
+    V: FnMut(VideoPacket),
+    P: FnMut(Pcm),
+    F: FnMut(LiveFrame) + Send,
+{
+    let sample_frames = handlers.sample_frames;
+    let on_frame = &mut handlers.on_frame;
+    let on_connection = &mut handlers.on_connection;
+    let on_video = &mut handlers.on_video;
+    let on_pcm = &mut handlers.on_pcm;
     let url = ingest_url(port);
     let listener =
         TcpListener::bind("127.0.0.1:0").map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
@@ -201,46 +274,71 @@ fn capture_one(
         .map_err(|err| MediaError::Ffmpeg(err.to_string()))?
         .port();
     let video_url = format!("tcp://127.0.0.1:{video_port}");
+    let frame_listener = if sample_frames {
+        let listener =
+            TcpListener::bind("127.0.0.1:0").map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+        Some(listener)
+    } else {
+        None
+    };
+    let frame_url = frame_listener
+        .as_ref()
+        .and_then(|listener| listener.local_addr().ok())
+        .map(|addr| format!("tcp://127.0.0.1:{}", addr.port()));
     let origin_us = clock.carry();
     let (video_tx, video_rx) = mpsc::channel();
-    let mut child = Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-loglevel",
-            "error",
-            "-rtmp_listen",
-            "1",
-            "-timeout",
-            "8",
-            "-i",
-            &url,
+    let mut command = Command::new("ffmpeg");
+    command.args([
+        "-y",
+        "-loglevel",
+        "error",
+        "-rtmp_listen",
+        "1",
+        "-timeout",
+        "8",
+        "-i",
+        &url,
+        "-map",
+        "0:a:0",
+        "-ac",
+        "2",
+        "-ar",
+        "48000",
+        "-f",
+        "f32le",
+        "-acodec",
+        "pcm_f32le",
+        "pipe:1",
+        "-map",
+        "0",
+        "-c",
+        "copy",
+        "-flush_packets",
+        "1",
+        "-f",
+        "flv",
+        &video_url,
+    ]);
+    if let Some(frame_url) = &frame_url {
+        command.args([
             "-map",
-            "0:a:0",
-            "-ac",
-            "2",
-            "-ar",
-            "48000",
-            "-f",
-            "f32le",
-            "-acodec",
-            "pcm_f32le",
-            "pipe:1",
-            "-map",
-            "0",
-            "-c",
-            "copy",
+            "0:v:0",
+            "-vf",
+            "fps=4,scale=640:360:flags=neighbor",
+            "-pix_fmt",
+            "bgra",
             "-flush_packets",
             "1",
             "-f",
-            "flv",
-            &video_url,
-            "-map",
-            "0",
-            "-c",
-            "copy",
-            "-avoid_negative_ts",
-            "make_zero",
-        ])
+            "rawvideo",
+            frame_url,
+        ]);
+    }
+    let mut child = command
+        .args(["-map", "0", "-c", "copy", "-avoid_negative_ts", "make_zero"])
         .arg(flv)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -271,6 +369,12 @@ fn capture_one(
         scope.spawn(move || {
             read_video_stream(listener, origin_us, video_tx, stop, &video_stop);
         });
+        if let Some(frame_listener) = frame_listener {
+            let frame_stop = Arc::clone(&video_done);
+            scope.spawn(move || {
+                read_frames(frame_listener, origin_us, on_frame, stop, &frame_stop);
+            });
+        }
         let read = read_pcm(
             &mut stdout,
             stop,
@@ -328,6 +432,61 @@ fn read_video_stream(
                     if tx.send(packet).is_err() {
                         return;
                     }
+                }
+            }
+            Err(err)
+                if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut =>
+            {
+                if done.load(Ordering::SeqCst) {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+}
+
+fn read_frames(
+    listener: TcpListener,
+    origin_us: i64,
+    on_frame: &mut (impl FnMut(LiveFrame) + Send),
+    stop: &AtomicBool,
+    done: &AtomicBool,
+) {
+    let mut stream = None;
+    while stream.is_none() && !stop.load(Ordering::SeqCst) && !done.load(Ordering::SeqCst) {
+        match listener.accept() {
+            Ok((sock, _)) => stream = Some(sock),
+            Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(20))
+            }
+            Err(_) => return,
+        }
+    }
+    let Some(mut stream) = stream else {
+        return;
+    };
+    let _ = stream.set_nonblocking(false);
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
+    let frame_bytes = (FRAME_WIDTH * FRAME_HEIGHT * 4) as usize;
+    let mut buf = Vec::new();
+    let mut tmp = [0u8; 65536];
+    let mut index = 0i64;
+    while !stop.load(Ordering::SeqCst) {
+        match stream.read(&mut tmp) {
+            Ok(0) => break,
+            Ok(n) => {
+                buf.extend_from_slice(&tmp[..n]);
+                while buf.len() >= frame_bytes {
+                    let bgra: Vec<u8> = buf.drain(..frame_bytes).collect();
+                    let ts = Ts(origin_us.saturating_add(index.saturating_mul(FRAME_INTERVAL_US)));
+                    index = index.saturating_add(1);
+                    on_frame(LiveFrame {
+                        ts,
+                        width: FRAME_WIDTH,
+                        height: FRAME_HEIGHT,
+                        bgra,
+                    });
                 }
             }
             Err(err)
@@ -625,6 +784,96 @@ mod tests {
             seen.windows(2).any(|pair| pair == [true, false]),
             "connection states were {seen:?}"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sampled_frames_share_the_audio_clock() {
+        if !ffmpeg_present() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("airlock-frames-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let port = free_port();
+        let url = ingest_url(port);
+        let stop = Arc::new(AtomicBool::new(false));
+        let audio_start = Arc::new(Mutex::new(None));
+        let frames = Arc::new(Mutex::new(Vec::new()));
+        let stop_thread = Arc::clone(&stop);
+        let audio_thread = Arc::clone(&audio_start);
+        let frames_thread = Arc::clone(&frames);
+        let dir_thread = dir.clone();
+        let server = thread::spawn(move || {
+            serve_capture_frames(
+                port,
+                &dir_thread,
+                &stop_thread,
+                |_| {},
+                |_| {},
+                |pcm| {
+                    let mut start = audio_thread.lock().unwrap();
+                    if start.is_none() {
+                        *start = Some(pcm.start.0);
+                    }
+                },
+                |frame| {
+                    assert_eq!(frame.width, FRAME_WIDTH);
+                    assert_eq!(frame.height, FRAME_HEIGHT);
+                    assert_eq!(frame.bgra.len(), (FRAME_WIDTH * FRAME_HEIGHT * 4) as usize);
+                    frames_thread.lock().unwrap().push(frame.ts.0);
+                },
+            )
+        });
+        thread::sleep(Duration::from_millis(700));
+        let published = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=size=640x360:rate=30:duration=2",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=2",
+                "-shortest",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-g",
+                "30",
+                "-c:a",
+                "aac",
+                "-f",
+                "flv",
+                &url,
+            ])
+            .status()
+            .unwrap();
+        assert!(published.success(), "publisher failed");
+        thread::sleep(Duration::from_millis(500));
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap().expect("capture");
+        let start = audio_start.lock().unwrap().expect("audio");
+        let stamps = frames.lock().unwrap().clone();
+        assert!(stamps.len() >= 4, "sampled {} frames", stamps.len());
+        assert!(
+            (stamps[0] - start).abs() < 500_000,
+            "first frame {} audio {}",
+            stamps[0],
+            start
+        );
+        for pair in stamps.windows(2) {
+            let gap = pair[1] - pair[0];
+            assert!(
+                (150_000..350_000).contains(&gap),
+                "frame gap {gap} was not a quarter second"
+            );
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
