@@ -627,4 +627,144 @@ mod tests {
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// Ten minutes of realtime RTMP through the ffmpeg listener. Not part of
+    /// `cargo test`. Run with `--ignored` when checking task 1.1.
+    #[test]
+    #[ignore = "ten minute capture"]
+    fn a_ten_minute_capture_does_not_drift() {
+        if !ffmpeg_present() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("airlock-drift-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let port = free_port();
+        let url = ingest_url(port);
+        let stop = Arc::new(AtomicBool::new(false));
+        let drift = Arc::new(Mutex::new(Drift::default()));
+        let stop_thread = Arc::clone(&stop);
+        let drift_thread = Arc::clone(&drift);
+        let dir_thread = dir.clone();
+        let server = thread::spawn(move || {
+            serve_capture(
+                port,
+                &dir_thread,
+                &stop_thread,
+                |_| {},
+                |packet| {
+                    let mut drift = drift_thread.lock().unwrap();
+                    drift.video_end = drift.video_end.max(packet.pts.0);
+                    drift.note();
+                },
+                |pcm| {
+                    let frames = pcm.samples.len() / pcm.channels.max(1);
+                    let end =
+                        pcm.start.0 + (frames as i64) * 1_000_000 / i64::from(pcm.sample_rate);
+                    let mut drift = drift_thread.lock().unwrap();
+                    drift.audio_end = drift.audio_end.max(end);
+                    drift.note();
+                },
+            )
+        });
+        thread::sleep(Duration::from_millis(700));
+        let published = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-re",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=size=1280x720:rate=30:duration=600",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=600",
+                "-shortest",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-tune",
+                "zerolatency",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-ar",
+                "48000",
+                "-ac",
+                "2",
+                "-f",
+                "flv",
+                &url,
+            ])
+            .status()
+            .unwrap();
+        thread::sleep(Duration::from_millis(500));
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap().expect("capture");
+        let drift = drift.lock().unwrap();
+        let frame = 1_000_000 / 30;
+        eprintln!(
+            "drift baseline {:?} us, walk {} us, audio {} video {}",
+            drift.baseline, drift.worst, drift.audio_end, drift.video_end
+        );
+        assert!(published.success(), "publisher failed");
+        assert!(
+            drift.audio_end >= 590_000_000,
+            "audio ended at {} us",
+            drift.audio_end
+        );
+        assert!(
+            drift.video_end >= 590_000_000,
+            "video ended at {} us",
+            drift.video_end
+        );
+        // One video frame plus one audio chunk. A walking clock would be seconds, not this.
+        assert!(
+            drift.worst <= frame * 2,
+            "offset walked {} us, baseline {:?} final audio {} video {}",
+            drift.worst,
+            drift.baseline,
+            drift.audio_end,
+            drift.video_end
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    struct Drift {
+        audio_end: i64,
+        video_end: i64,
+        next_us: i64,
+        baseline: Option<i64>,
+        worst: i64,
+    }
+
+    impl Default for Drift {
+        fn default() -> Self {
+            Drift {
+                audio_end: 0,
+                video_end: 0,
+                next_us: 5_000_000,
+                baseline: None,
+                worst: 0,
+            }
+        }
+    }
+
+    impl Drift {
+        fn note(&mut self) {
+            while self.audio_end >= self.next_us && self.video_end >= self.next_us {
+                let offset = self.audio_end - self.video_end;
+                match self.baseline {
+                    None => self.baseline = Some(offset),
+                    Some(base) => self.worst = self.worst.max((offset - base).abs()),
+                }
+                self.next_us += 1_000_000;
+            }
+        }
+    }
 }
