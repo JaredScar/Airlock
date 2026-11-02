@@ -44,6 +44,9 @@ pub struct StudioSettings {
     /// Crash and latency reports. Off, and there is no destination unless one is set.
     #[serde(default)]
     pub telemetry_opt_in: bool,
+    /// Open the local listener when OBS Studio's process appears.
+    #[serde(default = "start_with_obs_default")]
+    pub start_with_obs: bool,
 }
 
 fn shortcut_veto() -> String {
@@ -57,6 +60,9 @@ fn shortcut_dump() -> String {
 }
 fn shortcut_safe() -> String {
     "F11".into()
+}
+fn start_with_obs_default() -> bool {
+    true
 }
 
 impl Default for StudioSettings {
@@ -79,6 +85,7 @@ impl Default for StudioSettings {
             shortcut_safe: shortcut_safe(),
             license_key: String::new(),
             telemetry_opt_in: false,
+            start_with_obs: true,
         }
     }
 }

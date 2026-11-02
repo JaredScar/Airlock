@@ -22,6 +22,7 @@ export const DEFAULT_STUDIO: StudioSettings = {
   shortcut_safe: 'F11',
   license_key: '',
   telemetry_opt_in: false,
+  start_with_obs: true,
   policy: {
     delay_ms: 8000,
     merge_gap_ms: 250,
@@ -223,6 +224,10 @@ export class StudioService {
     this.commit({ ...this.settings(), telemetry_opt_in });
   }
 
+  setStartWithObs(start_with_obs: boolean) {
+    this.commit({ ...this.settings(), start_with_obs });
+  }
+
   setShortcut(which: 'veto' | 'approve' | 'dump' | 'safe', value: string) {
     const shortcut = value.trim() || DEFAULT_STUDIO[`shortcut_${which}`];
     this.commit({ ...this.settings(), [`shortcut_${which}`]: shortcut });
@@ -366,6 +371,7 @@ function loadStudio(): StudioSettings {
       shortcut_safe: parsed.shortcut_safe || base.shortcut_safe,
       license_key: parsed.license_key ?? '',
       telemetry_opt_in: parsed.telemetry_opt_in ?? false,
+      start_with_obs: parsed.start_with_obs ?? true,
       policy: {
         ...base.policy,
         ...parsed.policy,

@@ -34,4 +34,8 @@ license_key: string,
 /**
  * Crash and latency reports. Off, and there is no destination unless one is set.
  */
-telemetry_opt_in: boolean, };
+telemetry_opt_in: boolean, 
+/**
+ * Open the local listener when OBS Studio's process appears.
+ */
+start_with_obs: boolean, };

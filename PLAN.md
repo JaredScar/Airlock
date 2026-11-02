@@ -116,7 +116,7 @@ Video is passed through untouched (no re-encode).
 - [x] 5.5 Incident log upgrades: export as EDL / chapter markers / YouTube timestamps so VOD cleanup is fast; per-session history. — done 2026-10-28: CSV, CMX 3600 EDL, WebVTT chapters, and YouTube timestamps from the aired log, including missed-live rows. Buttons in the incident log.
 - [x] 5.6 Health panel: ingest bitrate, buffer fill, ASR/judge/OCR latency p50/p95, dropped frames, GPU usage. — done 2026-10-29: the live page shows hold and buffer fill. Ingest, dropped frames, speech, judge, on-screen text, and GPU stay blank until a broadcast reports them. Judge p50/p95 is computed from completed samples.
 - [x] 5.7 Light theme + accessibility pass (keyboard navigation, screen reader labels, color-blind-safe category colors). — done 2026-10-28: Light/Dark toggle, focus outlines, labeled controls, and category hues that are not a red/green pair (amber, red, blue, teal, purple, brown, gray).
-- [ ] 5.8 System tray + start with OBS (detect OBS launch). — BLOCKED: the tray menu (Show, Quit) is in. Detecting an OBS launch waits until OBS is installed.
+- [x] 5.8 System tray + start with OBS (detect OBS launch). — done 2026-11-01: Show and Quit were already on the tray. Closing the window hides it there. Every two seconds the process list is checked. When `obs64.exe` appears, and Settings has "Start the listener when OBS opens" on, Airlock opens the same listener as Go live. A session that is already listening is left alone. With OBS running on this PC, that image was visible to the check.
 
 ## Phase 6: Evaluation and quality
 
@@ -218,6 +218,7 @@ Video is passed through untouched (no re-encode).
 - D60 2026-11-01: Ingest stays the ffmpeg binary on PATH. A 10-minute 1280×720 30 fps realtime publish through that listener finished with audio at 600.021 s and video at 599.988 s. Their offset moved at most 40 ms after the 5-second mark, which is one frame plus one audio chunk. ffmpeg-next and GStreamer stay unwired.
 - D61 2026-11-01: Live Parakeet keeps a 1.2 s window, a 250 ms hop, and a 250 ms tail. A shorter digit token that overlaps a longer one, or that is contained in a longer one within 1.5 s, is dropped. A single spoken digit beside a grouped number is the same number. A word quieter than rms 0.0016 is a breath and is not emitted. Repeated digits with no longer neighbor are kept.
 - D62 2026-11-01: `slurs.txt` is maintained in this repo, not taken from a third-party lexicon. Entries are English tokens that Twitch, Kick, or YouTube treat as hate speech. Settings' extra-word and allow lines remain the way to add or remove words.
+- D63 2026-11-01: Closing the window hides Airlock in the tray. Quit on the tray exits. `obs64.exe` appearing in the process list is an OBS launch. When that happens and `start_with_obs` is on, the app opens the local listener. The default is on. A listener that is already running is not restarted.
 
 ## Open questions (for Jared)
 

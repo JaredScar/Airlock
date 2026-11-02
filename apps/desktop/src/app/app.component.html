@@ -69,7 +69,7 @@
   <div class="setup-body">
     <div>
       <p>Point OBS or Streamlabs Desktop at this PC, not at the platform. Airlock holds the stream, then forwards the clean copy. The key <code>airlock</code> is only this hop. The platform key stays in the OS keychain.</p>
-      <p><b>OBS.</b> Settings → Stream → Service: Custom. Server <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>.</p>
+      <p><b>OBS.</b> Settings → Stream → Service: Custom. Server <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>. Airlock can open its listener when OBS opens. That switch is in Settings. Closing this window leaves Airlock in the tray.</p>
       <p><b>Streamlabs Desktop.</b> Settings → Stream → Stream to custom ingest. Stream type: Custom Streaming Server. URL <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>.</p>
     </div>
     <ul>

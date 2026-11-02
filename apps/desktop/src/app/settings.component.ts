@@ -200,6 +200,11 @@ export class SettingsComponent {
     if (this.studio.streamKeySaved()) this.streamKeyDraft.set('');
   }
 
+  onStartWithObs(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setStartWithObs(input.checked);
+  }
+
   shortcutValue(id: 'veto' | 'approve' | 'dump' | 'safe'): string {
     const settings = this.studio.settings();
     if (id === 'approve') return settings.shortcut_approve;

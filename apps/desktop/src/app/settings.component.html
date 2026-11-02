@@ -22,6 +22,9 @@
         <button type="submit">Save stream key</button>
       </form>
       <p class="hint">{{ streamKeyNote() }} Streamlabs keeps using the local key <code>airlock</code>.</p>
+      <label class="stall">
+        <span><input type="checkbox" [checked]="studio.settings().start_with_obs" (change)="onStartWithObs($event)" /> Start the listener when OBS opens</span>
+      </label>
       <h3>Your rules for {{ platformName() }}</h3>
       <ul class="chips">
         @for (rule of studio.rulesFor(); track $index) {

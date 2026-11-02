@@ -51,6 +51,14 @@ export class AirlockService {
     if (this.listening || !inDesktopShell()) return;
     this.listening = true;
     await listen<UiEvent>(EVENT_CHANNEL, (e) => this.zone.run(() => this.apply(e.payload)));
+    await listen('airlock://session-started', () => this.zone.run(() => this.noteStarted()));
+  }
+
+  noteStarted() {
+    this.stopFixture();
+    this.reset();
+    this.running.set(true);
+    this.ingest.set(false);
   }
 
   async startLive(): Promise<void> {
@@ -60,9 +68,7 @@ export class AirlockService {
     }
     this.stopFixture();
     await this.ensureListening();
-    this.reset();
-    this.running.set(true);
-    this.ingest.set(false);
+    this.noteStarted();
     try {
       await invoke('start_live');
     } catch (e) {
