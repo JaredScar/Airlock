@@ -25,7 +25,7 @@ fn main() {
 
 #[cfg(all(feature = "parakeet", feature = "whisper"))]
 fn measure() -> Result<(), String> {
-    use airlock_asr::{ASR_SAMPLE_RATE, ParakeetRecognizer, WhisperConfig, WhisperRecognizer};
+    use airlock_asr::{ParakeetRecognizer, WhisperConfig, WhisperRecognizer};
     use std::path::PathBuf;
 
     let appdata = std::env::var("APPDATA").map_err(|_| "APPDATA is not set".to_string())?;
@@ -72,8 +72,7 @@ fn measure() -> Result<(), String> {
     let mut parakeet_edits = 0usize;
     let mut whisper_edits = 0usize;
     for (index, (name, text)) in clips.into_iter().enumerate() {
-        let mut audio = read_f32(&dir.join(format!("{name}.wav")))?;
-        audio.extend(std::iter::repeat_n(0.0, ASR_SAMPLE_RATE as usize / 2));
+        let audio = read_f32(&dir.join(format!("{name}.wav")))?;
         let origin = airlock_core::Ts((index as i64) * 60_000_000);
         let reference = normalize(text);
         let (heard, clip_latencies) = live_parakeet(&mut parakeet, &audio, origin)?;
@@ -231,10 +230,49 @@ fn read_f32(wav: &std::path::Path) -> Result<Vec<f32>, String> {
 
 #[cfg(all(feature = "parakeet", feature = "whisper"))]
 fn normalize(text: &str) -> Vec<String> {
-    text.split(|c: char| !c.is_ascii_alphanumeric())
+    let mut out = Vec::new();
+    let mut digits = String::new();
+    for word in text
+        .split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|word| !word.is_empty())
         .map(|word| word.to_ascii_lowercase())
-        .collect()
+    {
+        if let Some(digit) = spoken_digit(&word) {
+            digits.push(digit);
+            continue;
+        }
+        if !digits.is_empty() {
+            out.push(std::mem::take(&mut digits));
+        }
+        out.push(word);
+    }
+    if !digits.is_empty() {
+        out.push(digits);
+    }
+    out
+}
+
+#[cfg(all(feature = "parakeet", feature = "whisper"))]
+fn spoken_digit(word: &str) -> Option<char> {
+    if word.len() == 1
+        && let Some(digit) = word.chars().next()
+        && digit.is_ascii_digit()
+    {
+        return Some(digit);
+    }
+    Some(match word {
+        "zero" | "oh" => '0',
+        "one" => '1',
+        "two" => '2',
+        "three" => '3',
+        "four" => '4',
+        "five" => '5',
+        "six" => '6',
+        "seven" => '7',
+        "eight" => '8',
+        "nine" => '9',
+        _ => return None,
+    })
 }
 
 #[cfg(all(feature = "parakeet", feature = "whisper"))]

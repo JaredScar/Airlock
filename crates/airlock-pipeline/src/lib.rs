@@ -641,18 +641,48 @@ fn repeats_latest(word: &Word, previous: Option<&Word>) -> bool {
     let Some(previous) = previous else {
         return false;
     };
-    norm_word(&previous.text) == norm_word(&word.text)
-        && word.span.start.0 < previous.span.end.0 + 4_000_000
-        && word.span.end.0 > previous.span.start.0 - 4_000_000
+    if norm_word(&previous.text) != norm_word(&word.text) {
+        return false;
+    }
+    let gap = repeat_gap(&word.text, 4_000_000);
+    word.span.start.0 < previous.span.end.0 + gap && word.span.end.0 > previous.span.start.0 - gap
 }
 
 fn is_repeat(word: &Word, existing: &[Word]) -> bool {
     let norm = norm_word(&word.text);
+    let gap = repeat_gap(&word.text, 2_500_000);
     existing.iter().any(|old| {
         norm_word(&old.text) == norm
-            && word.span.start.0 < old.span.end.0 + 2_500_000
-            && word.span.end.0 > old.span.start.0 - 2_500_000
+            && word.span.start.0 < old.span.end.0 + gap
+            && word.span.end.0 > old.span.start.0 - gap
     })
+}
+
+/// A spoken digit said again is a new word. Other repeats inside `normal` are one utterance.
+fn repeat_gap(text: &str, normal: i64) -> i64 {
+    if is_count_word(&norm_word(text)) {
+        80_000
+    } else {
+        normal
+    }
+}
+
+fn is_count_word(norm: &str) -> bool {
+    matches!(
+        norm,
+        "zero"
+            | "oh"
+            | "one"
+            | "two"
+            | "three"
+            | "four"
+            | "five"
+            | "six"
+            | "seven"
+            | "eight"
+            | "nine"
+            | "ten"
+    )
 }
 
 fn norm_word(text: &str) -> String {

@@ -1,4 +1,66 @@
-# Slur list. Intentionally shipped empty in the repo.
-# TODO(PLAN 2.6): populate from a maintained source (e.g. LDNOOBW or a commercial
-# hate-speech lexicon) after a license check, kept per-language. Same format as
-# profanity.txt. Slurs take precedence over profanity when both match.
+# English terms that break Twitch, Kick, and YouTube hate-speech rules.
+# `word` = exact token, `word*` = prefix. Slurs take precedence over profanity.
+# Prefixes are avoided where they would catch an ordinary word
+# (japanese, pakistan, niggardly, spice, cooperate).
+nigger*
+nigga
+niggas
+chink
+chinks
+gook
+gooks
+spic
+spics
+kike*
+wetback
+wetbacks
+towelhead
+towelheads
+raghead
+ragheads
+beaner
+beaners
+coon
+coons
+darkie
+darkies
+honky
+honkies
+honkie
+paki
+pakis
+wog
+wogs
+abo
+abos
+redskin
+redskins
+injun
+injuns
+squaw
+squaws
+zipperhead
+zipperheads
+negro
+negros
+faggot*
+fag
+fags
+dyke
+dykes
+tranny
+trannies
+shemale
+shemales
+retard
+retarded
+retards
+libtard
+libtards
+mong
+muzzie
+muzzies
+cracker
+crackers
+whitey
+whiteys
