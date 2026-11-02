@@ -29,8 +29,8 @@ pub use threads::{OutputSnapshot, SessionBus, SessionInbox};
 pub use watchdog::Watchdog;
 
 use airlock_core::{
-    Action, Category, DecisionEngine, DelayRamp, Detection, Dur, Platform, Policy, Redaction,
-    RedactionId, Span, StallFallback, Target, TextBox, Ts, Word,
+    Action, Category, DecisionEngine, DelayRamp, Detection, DetectorKind, Dur, Modality, Platform,
+    Policy, Rect, Redaction, RedactionId, Span, StallFallback, Target, TextBox, Ts, Word,
 };
 use airlock_detect::{ScreenTextScanner, SpokenPiiDetector, WordlistDetector};
 use airlock_llm::JudgeRequest;
@@ -355,6 +355,24 @@ impl Session {
     pub fn on_screen_text(&mut self, boxes: &[TextBox], span: Span) {
         let found = self.screen.scan(boxes, span);
         self.ingest_all(found);
+    }
+
+    /// A local vision model saw a DM, a notification, or an explicit image that
+    /// text recognition cannot classify. The finding is a suggestion: the
+    /// streamer approves the blur. A result that arrives after the span has
+    /// aired is filed as missed, the same way a late judge result is.
+    pub fn on_scene(&mut self, span: Span, region: Rect, confidence: f32, reason: &str) {
+        let detection = Detection {
+            source: DetectorKind::VisionModel,
+            category: Category::ScreenPii,
+            modality: Modality::Video,
+            span,
+            region: Some(region),
+            confidence,
+            reason: reason.to_string(),
+            evidence: airlock_core::model::mask_evidence(reason),
+        };
+        self.ingest_all(vec![detection]);
     }
 
     /// Builds the next context-judge request, or `None` if there are no new words.

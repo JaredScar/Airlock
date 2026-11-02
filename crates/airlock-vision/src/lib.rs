@@ -8,8 +8,13 @@
 use airlock_core::{Dur, Span, TextBox, Ts};
 use thiserror::Error;
 
+mod scene;
 #[cfg(feature = "winocr")]
 mod winocr;
+
+pub use scene::{
+    OllamaScene, SceneFinding, SceneLabel, bgra_png, parse_scene_label, scene_deadline,
+};
 
 #[derive(Debug, Error)]
 pub enum VisionError {
@@ -17,6 +22,10 @@ pub enum VisionError {
     NotImplemented(&'static str),
     #[error("ocr failed: {0}")]
     Ocr(String),
+    #[error("scene model failed: {0}")]
+    Scene(String),
+    #[error("scene model missed its deadline")]
+    Deadline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

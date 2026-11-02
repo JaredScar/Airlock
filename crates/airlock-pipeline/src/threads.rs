@@ -8,7 +8,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-use airlock_core::{Detection, Redaction, RedactionId, Span, TextBox, Ts, Word};
+use airlock_core::{Detection, Rect, Redaction, RedactionId, Span, TextBox, Ts, Word};
 
 use crate::{JudgeWindow, Session, UiEvent};
 
@@ -18,6 +18,14 @@ pub enum SessionInbox {
     Screen {
         boxes: Vec<TextBox>,
         span: Span,
+    },
+    /// A vision-model finding for one sampled frame. `reason` is a short label,
+    /// never image bytes or private terms.
+    Scene {
+        span: Span,
+        region: Rect,
+        confidence: f32,
+        reason: String,
     },
     Judge {
         window: JudgeWindow,
@@ -121,6 +129,12 @@ fn dispatch(session: &mut Session, msg: SessionInbox) -> bool {
     match msg {
         SessionInbox::Words(words) => session.on_words(words),
         SessionInbox::Screen { boxes, span } => session.on_screen_text(&boxes, span),
+        SessionInbox::Scene {
+            span,
+            region,
+            confidence,
+            reason,
+        } => session.on_scene(span, region, confidence, &reason),
         SessionInbox::Judge { window, detections } => session.on_judge_result(&window, detections),
         SessionInbox::Live(ts) => session.on_live_time(ts),
         SessionInbox::Energy(energetic) => session.note_audio_energy(energetic),
