@@ -34,6 +34,7 @@ export class SettingsComponent {
   readonly licenseDraft = signal('');
   readonly streamKeyDraft = signal('');
   readonly obsPasswordDraft = signal('');
+  readonly moderatorPasswordDraft = signal('');
   readonly shortcuts = [
     { id: 'veto' as const, label: 'Veto next' },
     { id: 'approve' as const, label: 'Approve next' },
@@ -205,6 +206,32 @@ export class SettingsComponent {
     const draft = this.streamKeyDraft();
     await this.studio.saveStreamKey(draft);
     if (this.studio.streamKeySaved()) this.streamKeyDraft.set('');
+  }
+
+  onModerator(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setModeratorEnabled(input.checked);
+  }
+
+  onModeratorPort(event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    const port = Number(input.value);
+    if (!Number.isFinite(port)) {
+      input.value = String(this.studio.settings().moderator_port);
+      return;
+    }
+    this.studio.setModeratorPort(port);
+  }
+
+  onModeratorPassword(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.moderatorPasswordDraft.set(input.value);
+  }
+
+  saveModeratorPassword() {
+    void this.studio.saveModeratorPassword(this.moderatorPasswordDraft());
+    this.moderatorPasswordDraft.set('');
   }
 
   onStartWithObs(event: Event) {

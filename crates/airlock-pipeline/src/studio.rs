@@ -58,6 +58,16 @@ pub struct StudioSettings {
     /// OBS source names that are never screenshotted.
     #[serde(default)]
     pub scan_never: Vec<String>,
+    /// A moderator on another computer may approve or veto during the delay.
+    #[serde(default)]
+    pub moderator_enabled: bool,
+    /// TCP port for that connection. The default is 1940.
+    #[serde(default = "moderator_port_default")]
+    pub moderator_port: u16,
+}
+
+fn moderator_port_default() -> u16 {
+    1940
 }
 
 fn shortcut_veto() -> String {
@@ -100,6 +110,8 @@ impl Default for StudioSettings {
             start_with_obs: true,
             scan_always: Vec::new(),
             scan_never: Vec::new(),
+            moderator_enabled: false,
+            moderator_port: moderator_port_default(),
         }
     }
 }

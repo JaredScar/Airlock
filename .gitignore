@@ -1,4 +1,9 @@
 /target
+apps/obs-plugin/vendor/
+apps/obs-plugin/*.dll
+apps/obs-plugin/*.lib
+apps/obs-plugin/*.exp
+apps/obs-plugin/*.def
 node_modules/
 apps/desktop/dist/
 apps/desktop/.angular/

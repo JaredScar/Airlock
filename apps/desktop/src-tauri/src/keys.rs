@@ -129,6 +129,41 @@ pub fn load_obs_password() -> Result<String, String> {
     Ok(password)
 }
 
+pub fn store_moderator_password(password: &str) -> Result<(), String> {
+    let password = password.trim();
+    if password.is_empty() {
+        return Err("moderator password is empty".into());
+    }
+    let entry =
+        Entry::new(SERVICE, "moderator").map_err(|_| "could not open the keychain".to_string())?;
+    entry
+        .set_password(password)
+        .map_err(|_| "could not store the moderator password".to_string())
+}
+
+pub fn load_moderator_password() -> Result<String, String> {
+    let entry =
+        Entry::new(SERVICE, "moderator").map_err(|_| "could not open the keychain".to_string())?;
+    let password = entry
+        .get_password()
+        .map_err(|_| "could not read the moderator password".to_string())?;
+    let password = password.trim().to_string();
+    if password.is_empty() {
+        return Err("moderator password is empty".into());
+    }
+    Ok(password)
+}
+
+pub fn moderator_password_is_saved() -> Result<bool, String> {
+    let entry =
+        Entry::new(SERVICE, "moderator").map_err(|_| "could not open the keychain".to_string())?;
+    match entry.get_password() {
+        Ok(password) => Ok(!password.trim().is_empty()),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(_) => Err("could not read the moderator password".into()),
+    }
+}
+
 pub fn obs_password_is_saved() -> Result<bool, String> {
     let entry =
         Entry::new(SERVICE, "obs").map_err(|_| "could not open the keychain".to_string())?;

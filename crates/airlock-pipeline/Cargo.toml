@@ -13,6 +13,7 @@ airlock-llm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ts-rs.workspace = true
+tungstenite = "0.26"
 aes-gcm = "0.10"
 hmac = "0.12"
 rand = "0.8"

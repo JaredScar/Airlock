@@ -119,6 +119,8 @@ Video is passed through untouched (no re-encode).
 - [x] 5.8 System tray + start with OBS (detect OBS launch). — done 2026-11-01: Show and Quit were already on the tray. Closing the window hides it there. Every two seconds the process list is checked. When `obs64.exe` appears, and Settings has "Start the listener when OBS opens" on, Airlock opens the same listener as Go live. A session that is already listening is left alone. With OBS running on this PC, that image was visible to the check.
 - [x] 5.9 Multistream: one cleaned encode copied to Twitch, YouTube, and Kick together. — done 2026-11-01: Settings and Setup check each destination. Go live opens one publisher per saved key, and one failure does not stop the others. A second destination needs Pro. The judge prompt includes every selected platform pack and those streamer rules. A looser per-platform encode is still later.
   - *Done when:* more than one destination can be selected, each saved key is published, a failed destination leaves the others up, and the license gate is tested.
+- [x] 5.10 Team mode: a moderator approves or vetoes during the delay. — done 2026-11-01: Settings saves a password in the keychain and opens port 1940 when you go live. The right password can veto an item still in the hold. A wrong password is refused and is not repeated. The queue has no private term, transcript, or stream key.
+- [x] 5.11 OBS audio-delay filter. — done 2026-11-01: The Airlock Delay filter holds one source and Dump silences that hold. It does not run speech recognition, the judge, or RTMP. The DLL matches OBS 33.0.1 and is installed in the user plugin folder. Restart OBS to load it.
 
 ## Phase 6: Evaluation and quality
 
@@ -151,8 +153,6 @@ Video is passed through untouched (no re-encode).
 - A looser Kick cut than the YouTube cut — needs a second encode, because 5.9 copies one cleaned stream to every destination.
 - Chat-aware judge: read Twitch chat so the judge knows when the streamer is reading a message aloud.
 - Music detection (DMCA): fingerprint background music and mute it in the VOD/live.
-- Team/agency mode: a moderator approves/vetoes remotely during the delay window.
-- OBS plugin variant for users who don't want a separate app.
 
 ---
 
@@ -224,6 +224,8 @@ Video is passed through untouched (no re-encode).
 - D64 2026-11-01: OBS source names come from WebSocket 5 on `127.0.0.1:4455`. The password is a keychain entry `airlock/obs` and is sent only as the Identify auth field. Never-scan removes a source. Always-scan adds it even when the program scene does not contain it. A name on both lists is not scanned.
 - D65 2026-11-01: Setup detects the GPU, names the speech model this build will run, saves the platform stream key, and sets OBS's custom RTMP server to `rtmp://127.0.0.1:1935/live` with the local key `airlock`. The write is checked by reading the service settings back. The platform key and the WebSocket password stay in the OS keychain.
 - D66 2026-11-01: Multistream copies one AAC encode and the same video packets to each selected destination. A second destination is Pro. Without Pro, only the focused platform is published. The judge prompt gets every published platform's pack and the union of those streamer rules, so the shared encode follows the stricter rules. A destination whose publish fails retries on its own. Separate encodes for a looser platform stay later.
+- D67 2026-11-01: A moderator is off until Settings turns it on. Go live listens on `0.0.0.0` port 1940. The password is the keychain account `airlock/moderator` and is not a Pro feature. The socket sends category, time, mode, action, and masked evidence. Private terms, the transcript, and stream keys are not on it. A wrong password closes the connection and the reply does not contain the password.
+- D68 2026-11-01: The OBS plugin is an audio filter, not a second copy of the app. It holds one source with the tested sample delay and can silence that hold. Speech recognition, the judge, and publishing stay in the Tauri app. The filter links libobs, so that plugin is GPL-2.0-or-later. The local app from D1 remains the product.
 
 ## Open questions (for Jared)
 

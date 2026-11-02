@@ -1,0 +1,14 @@
+[package]
+name = "airlock-obs-plugin"
+description = "OBS audio filter: hold a source for a delay and dump that hold"
+version.workspace = true
+edition.workspace = true
+license = "GPL-2.0-or-later"
+authors.workspace = true
+
+[lib]
+name = "airlock_obs_delay"
+crate-type = ["staticlib"]
+
+[dependencies]
+airlock-core.workspace = true

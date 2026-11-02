@@ -1,0 +1,44 @@
+<div class="settings">
+  <section class="panel wide">
+    <header class="panel-head">
+      <h2>Moderator</h2>
+      <p class="hint">Connect to the stream PC during the delay. Redact applies a suggestion. Let it air cancels a redaction. This page does not receive the transcript, private terms, or a stream key.</p>
+    </header>
+    <div class="scroll settings-body">
+      <p class="hint">{{ note() }}</p>
+      <form class="add" (submit)="$event.preventDefault(); connect()">
+        <input [value]="host()" (input)="onHost($event)" aria-label="Stream PC address" placeholder="Stream PC address" />
+        <input type="number" min="1" max="65535" [value]="port()" (change)="onPort($event)" aria-label="Port" />
+        <input type="password" autocomplete="off" [value]="password()" (input)="onPassword($event)" aria-label="Moderator password" placeholder="Password" />
+        <button type="submit">Connect</button>
+        <button type="button" class="ghost" (click)="disconnect()" [disabled]="!connected()">Disconnect</button>
+      </form>
+      @for (item of items(); track item.id) {
+        <article class="card" [class]="'card cat-' + item.category">
+          <div class="eta">
+            <b>{{ secondsUntil(item) | number: '1.1-1' }}</b>
+            <span>sec</span>
+          </div>
+          <div class="card-body">
+            <div class="card-head">
+              <span class="chip">{{ label(item.category) }}</span>
+              <span class="action">{{ item.action }}</span>
+            </div>
+            <p class="reason">{{ item.reasons.join(' · ') }}</p>
+            @if (item.evidence.length) {
+              <p class="evidence">{{ item.evidence.join('  ') }}</p>
+            }
+            <div class="card-foot">
+              @if (item.mode === 'suggest' && item.status !== 'approved') {
+                <button type="button" class="approve" (click)="decide('approve', item.id)">Redact</button>
+              }
+              @if (active(item)) {
+                <button type="button" class="veto" (click)="decide('veto', item.id)">Let it air</button>
+              }
+            </div>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+</div>

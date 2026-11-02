@@ -7,6 +7,7 @@
 mod demo;
 mod keys;
 mod live;
+mod moderator;
 mod obs;
 mod obs_ws;
 
@@ -81,6 +82,16 @@ fn set_cloud_key(key: String) -> Result<(), String> {
 #[tauri::command]
 fn set_obs_password(password: String) -> Result<(), String> {
     keys::store_obs_password(&password)
+}
+
+#[tauri::command]
+fn set_moderator_password(password: String) -> Result<(), String> {
+    keys::store_moderator_password(&password)
+}
+
+#[tauri::command]
+fn moderator_password_saved() -> Result<bool, String> {
+    keys::moderator_password_is_saved()
 }
 
 #[tauri::command]
@@ -199,13 +210,20 @@ fn start_demo(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), S
         .clone();
     let mine = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
     demo::start(
-        app,
+        app.clone(),
         state.session.clone(),
-        settings,
+        settings.clone(),
         state.generation.clone(),
         mine,
     )
     .map_err(|e| e.to_string())?;
+    moderator::start(
+        &app,
+        state.session.clone(),
+        state.generation.clone(),
+        mine,
+        &settings,
+    );
     state.listening.store(true, Ordering::SeqCst);
     Ok(())
 }
@@ -234,10 +252,17 @@ fn begin_live(app: &AppHandle, state: &AppState) -> Result<(), String> {
     live::start(
         app.clone(),
         state.session.clone(),
-        settings,
+        settings.clone(),
         state.generation.clone(),
         mine,
     )?;
+    moderator::start(
+        app,
+        state.session.clone(),
+        state.generation.clone(),
+        mine,
+        &settings,
+    );
     state.listening.store(true, Ordering::SeqCst);
     Ok(())
 }
@@ -247,6 +272,13 @@ fn stop_live(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), St
     state.listening.store(false, Ordering::SeqCst);
     state.generation.fetch_add(1, Ordering::SeqCst);
     let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected: false });
+    let _ = app.emit(
+        EVENT_CHANNEL,
+        &UiEvent::Moderator {
+            listening: false,
+            detail: String::new(),
+        },
+    );
     Ok(())
 }
 
@@ -496,6 +528,8 @@ pub fn run() {
             set_cloud_key,
             set_obs_password,
             obs_password_saved,
+            set_moderator_password,
+            moderator_password_saved,
             list_obs_sources,
             machine_setup,
             configure_obs_ingest,

@@ -12,6 +12,7 @@ pub mod eval_run;
 pub mod incident;
 pub mod judge_sched;
 pub mod license;
+pub mod moderator;
 pub mod obs_scan;
 pub mod studio;
 pub mod telemetry;
@@ -23,6 +24,7 @@ pub use eval_label::{LabeledSpan, parse_labels};
 pub use eval_run::{ClipScript, EvalReport, score_scripts};
 pub use judge_sched::JudgeScheduler;
 pub use license::{Feature, allows, issue_dev_license};
+pub use moderator::{ModeratorCommand, apply_moderator, moderator_queue, serve_moderator};
 pub use obs_scan::{SourceScan, screenshot_targets, source_scan};
 pub use studio::StudioSettings;
 pub use telemetry::telemetry_report;
@@ -122,6 +124,12 @@ pub enum UiEvent {
         active: bool,
         detail: String,
     },
+    /// A moderator on the local network can approve or veto during the delay.
+    /// `detail` is safe to show. It never contains the password.
+    Moderator {
+        listening: bool,
+        detail: String,
+    },
 }
 
 /// What the judge thread needs for one request (owned, so it can cross threads).
@@ -199,6 +207,11 @@ impl Session {
 
     pub fn playhead(&self) -> Ts {
         self.live - (self.cfg.policy.delay() + self.extra_delay)
+    }
+
+    /// Newest ingested media time. The moderator queue uses this with the playhead.
+    pub fn live_edge(&self) -> Ts {
+        self.live
     }
 
     /// How long audio is currently held. Policy delay plus any stall extension.

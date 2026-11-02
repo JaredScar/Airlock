@@ -26,6 +26,8 @@ export const DEFAULT_STUDIO: StudioSettings = {
   start_with_obs: true,
   scan_always: [],
   scan_never: [],
+  moderator_enabled: false,
+  moderator_port: 1940,
   policy: {
     delay_ms: 8000,
     merge_gap_ms: 250,
@@ -56,11 +58,17 @@ export class StudioService {
   readonly obsTargets = signal<string[]>([]);
   readonly obsNote = signal('Save the OBS WebSocket password, then refresh the source list.');
   readonly obsPasswordSaved = signal(false);
+  readonly moderatorNote = signal(
+    'Save a password, then turn the connection on. It opens when you go live.',
+  );
   readonly licenseNote = signal('Paste a Pro license and press Save license.');
   readonly pro = signal(false);
 
   constructor() {
-    if (inDesktopShell()) void this.pullFromDesktop();
+    if (inDesktopShell()) {
+      void this.pullFromDesktop();
+      void this.refreshModeratorPassword();
+    }
     void this.refreshPack();
   }
 
@@ -302,6 +310,40 @@ export class StudioService {
     return 'default';
   }
 
+  setModeratorEnabled(on: boolean) {
+    this.commit({ ...this.settings(), moderator_enabled: on });
+  }
+
+  setModeratorPort(port: number) {
+    if (!Number.isFinite(port)) return;
+    const moderator_port = Math.min(65535, Math.max(1, Math.round(port)));
+    this.commit({ ...this.settings(), moderator_port });
+  }
+
+  async saveModeratorPassword(password: string) {
+    if (!inDesktopShell()) {
+      this.moderatorNote.set('Open the Airlock app to save the moderator password.');
+      return;
+    }
+    try {
+      await invoke('set_moderator_password', { password });
+      this.moderatorNote.set('Moderator password saved in the OS keychain.');
+      this.error.set(null);
+    } catch (e) {
+      this.moderatorNote.set(String(e));
+    }
+  }
+
+  async refreshModeratorPassword() {
+    if (!inDesktopShell()) return;
+    try {
+      const saved = await invoke<boolean>('moderator_password_saved');
+      if (saved) this.moderatorNote.set('A moderator password is saved in the OS keychain.');
+    } catch {
+      /* The note stays on the default sentence. */
+    }
+  }
+
   async saveObsPassword(password: string) {
     if (!inDesktopShell()) {
       this.obsNote.set('Open the Airlock app to save the OBS WebSocket password.');
@@ -484,6 +526,8 @@ function loadStudio(): StudioSettings {
       start_with_obs: parsed.start_with_obs ?? true,
       scan_always: parsed.scan_always ?? [],
       scan_never: parsed.scan_never ?? [],
+      moderator_enabled: parsed.moderator_enabled ?? false,
+      moderator_port: parsed.moderator_port && parsed.moderator_port > 0 ? parsed.moderator_port : 1940,
       destinations: (parsed.destinations ?? []).filter((id) => id === 'twitch' || id === 'youtube' || id === 'kick'),
       policy: {
         ...base.policy,

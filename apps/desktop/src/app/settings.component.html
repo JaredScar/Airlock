@@ -188,6 +188,27 @@
 
   <section class="panel">
     <header class="panel-head">
+      <h2>Moderator</h2>
+      <p class="hint">Someone on another computer on this network can approve or veto while the audio is still in the delay. They need this password. The connection lists the category, the time, and masked evidence. It does not include private terms, the transcript, or a stream key. The connection opens when you go live.</p>
+    </header>
+    <div class="scroll settings-body">
+      <p class="hint">{{ studio.moderatorNote() }}</p>
+      <label class="stall">
+        <span><input type="checkbox" [checked]="studio.settings().moderator_enabled" (change)="onModerator($event)" /> Let a moderator connect</span>
+      </label>
+      <label>
+        Port
+        <input type="number" min="1" max="65535" [value]="studio.settings().moderator_port" (change)="onModeratorPort($event)" aria-label="Moderator port" />
+      </label>
+      <form class="add" (submit)="$event.preventDefault(); saveModeratorPassword()">
+        <input type="password" autocomplete="off" [value]="moderatorPasswordDraft()" (input)="onModeratorPassword($event)" placeholder="Moderator password" aria-label="Moderator password" />
+        <button type="submit">Save password</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel-head">
       <h2>Hotkeys</h2>
       <p class="hint">Veto next, approve next, dump, and safe mode. In the desktop app these are global. Here they work while this window is focused and you are not typing in a field.</p>
     </header>
@@ -214,6 +235,7 @@
         <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
         <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
         <li>A stream key stays in the OS keychain. It is not written into settings or logs. Go live sends the held picture and sound to each destination that has a key saved.</li>
+        <li>A moderator connection sends the category, the time, and masked evidence to a computer that has the password. Private terms, the transcript, and stream keys are not included. The password stays in the OS keychain.</li>
         <li>Crash and latency reports stay off unless you opt in below, and they never include the transcript or a key. No destination is configured, so nothing is sent.</li>
       </ul>
       <label class="stall">

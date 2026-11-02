@@ -36,6 +36,7 @@ export class AirlockService {
   readonly egress = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly stall = signal<string | null>(null);
+  readonly moderator = signal<string | null>(null);
 
   /** Redactions still inside the delay window, soonest first. */
   readonly upcoming = computed(() =>
@@ -274,6 +275,9 @@ export class AirlockService {
         break;
       case 'egress':
         this.egress.set(ev.detail);
+        break;
+      case 'moderator':
+        this.moderator.set(ev.detail ? ev.detail : null);
         break;
       default: {
         const unexpected: never = ev;

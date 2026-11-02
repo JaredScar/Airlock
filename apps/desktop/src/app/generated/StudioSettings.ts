@@ -54,4 +54,12 @@ scan_always: Array<string>,
 /**
  * OBS source names that are never screenshotted.
  */
-scan_never: Array<string>, };
+scan_never: Array<string>, 
+/**
+ * A moderator on another computer may approve or veto during the delay.
+ */
+moderator_enabled: boolean, 
+/**
+ * TCP port for that connection. The default is 1940.
+ */
+moderator_port: number, };
