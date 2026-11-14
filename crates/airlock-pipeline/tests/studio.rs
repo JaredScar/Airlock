@@ -40,6 +40,39 @@ fn selected_platform_rules_reach_the_judge_and_private_terms_do_not() {
 }
 
 #[test]
+fn two_destinations_share_the_prompt() {
+    let settings = StudioSettings {
+        platform: Platform::Youtube,
+        destinations: vec![Platform::Twitch, Platform::Youtube],
+        rules_twitch: vec!["twitch only rule".into()],
+        rules_youtube: vec!["no sponsor names".into()],
+        ..StudioSettings::default()
+    };
+    let config = settings.session_config().unwrap();
+    assert_eq!(config.platform, Platform::Twitch);
+    assert_eq!(config.also_platforms, vec![Platform::Youtube]);
+    let mut session = airlock_pipeline::Session::new(config);
+    session.on_words(vec![Word::new("hello", Span::from_millis(0, 200), 0.9)]);
+    let window = session.next_judge_window().unwrap();
+    let prompt = build_prompt(&session.judge_request(&window));
+    assert!(prompt.contains("on Twitch and YouTube"));
+    assert!(prompt.contains("Twitch pack v1"));
+    assert!(prompt.contains("YouTube pack v1"));
+    assert!(prompt.contains("twitch only rule"));
+    assert!(prompt.contains("no sponsor names"));
+    assert!(!prompt.contains("Springfield"));
+}
+
+#[test]
+fn an_old_settings_file_still_publishes_one_platform() {
+    let mut value = serde_json::to_value(StudioSettings::default()).unwrap();
+    value.as_object_mut().unwrap().remove("destinations");
+    let loaded: StudioSettings = serde_json::from_value(value).unwrap();
+    assert!(loaded.destinations.is_empty());
+    assert_eq!(loaded.publish_platforms(), vec![Platform::Twitch]);
+}
+
+#[test]
 fn bad_delay_is_rejected() {
     let settings = StudioSettings {
         policy: airlock_core::Policy {

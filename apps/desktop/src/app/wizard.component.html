@@ -1,0 +1,45 @@
+<div class="settings">
+  <section class="panel wide">
+    <header class="panel-head">
+      <h2>Setup</h2>
+      <p class="hint">Detect this PC, save the platform key, then point OBS at Airlock.</p>
+    </header>
+    <div class="scroll settings-body">
+      <h3>1. This PC</h3>
+      <p>{{ gpu() }}</p>
+      @if (model()) {
+        <p class="hint">Speech model: <code>{{ model() }}</code></p>
+      }
+      <button type="button" (click)="studio.downloadModel()">Download speech model</button>
+      <p class="hint">{{ studio.modelNote() }}</p>
+
+      <h3>2. Platform key</h3>
+      <div class="platforms" role="group" aria-label="Destinations">
+        @for (id of destinations; track id) {
+          <div class="platform-pick">
+            <label>
+              <input type="checkbox" [checked]="studio.isDestination(id)" (change)="onDestination(id, $event)" [attr.aria-label]="'Send to ' + names[id]" />
+              {{ names[id] }}
+            </label>
+            <button type="button" class="ghost" [class.on]="studio.settings().platform === id" (click)="studio.focusDestination(id)" [attr.aria-pressed]="studio.settings().platform === id" [attr.aria-label]="'Edit ' + names[id] + ' key and rules'">Edit</button>
+          </div>
+        }
+      </div>
+      <p class="hint">Check every destination. Edit chooses which key this box saves.</p>
+      <form class="add" (submit)="$event.preventDefault(); saveStreamKey()">
+        <input type="password" autocomplete="off" [value]="streamKeyDraft()" (input)="onStreamKey($event)" [attr.placeholder]="platformName() + ' stream key'" [attr.aria-label]="platformName() + ' stream key'" />
+        <button type="submit">Save stream key</button>
+      </form>
+      <p class="hint">{{ studio.streamKeySaved() ? 'A platform stream key is saved in the OS keychain.' : 'Paste the platform stream key here. This is not an API client secret.' }}</p>
+
+      <h3>3. OBS</h3>
+      <p class="hint">In OBS, Tools → WebSocket Server Settings → Enable WebSocket server. Then save that password here and point OBS at this PC.</p>
+      <form class="add" (submit)="$event.preventDefault(); saveObsPassword()">
+        <input type="password" autocomplete="off" [value]="obsPasswordDraft()" (input)="onObsPassword($event)" placeholder="OBS WebSocket password" aria-label="OBS WebSocket password" />
+        <button type="submit">Save OBS password</button>
+      </form>
+      <button type="button" (click)="pointObs()">Point OBS at Airlock</button>
+      <p class="hint">{{ obsNote() }}</p>
+    </div>
+  </section>
+</div>

@@ -14,17 +14,21 @@ use crate::link::reconnect_backoff;
 use crate::pacer::FlvMux;
 use crate::video_hold::VideoPacket;
 
+/// One platform publish. `name` is a display name. `url` holds the stream key and
+/// must not be copied into a status string.
+#[derive(Debug, Clone)]
+pub struct PublishTarget {
+    pub url: String,
+    pub name: String,
+}
+
 /// What one `DelayedForward::write` did. Strings here are safe to show.
-#[derive(Debug, PartialEq, Eq)]
-pub enum ForwardStep {
-    /// No platform key, so nothing is sent.
-    Idle,
-    /// The platform connection opened on this call.
-    Started,
-    /// Tags were written.
-    Sent,
-    /// The last attempt failed and the backoff has not elapsed.
-    Waiting,
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ForwardReport {
+    /// Display names whose connection opened on this call.
+    pub started: Vec<String>,
+    /// One safe line per leg that failed. No stream key.
+    pub failed: Vec<String>,
 }
 
 /// Holds an ffmpeg publisher. Dropping it stops the process.
@@ -240,147 +244,278 @@ impl Drop for AacEncoder {
     }
 }
 
-/// Forwards released video packets and studio PCM. Without a URL it does nothing.
-pub struct DelayedForward {
-    url: Option<String>,
+/// Forwards one cleaned encode to every destination. Audio is encoded once.
+struct Leg {
+    url: String,
+    name: String,
     publish: Option<LivePublish>,
-    aac: Option<AacEncoder>,
     header_sent: bool,
     sent_asc: bool,
     sent_avc: bool,
-    avc_header: Option<Vec<u8>>,
-    audio_us: i64,
     retry_after: Option<Instant>,
     attempt: u32,
-    announced: bool,
+}
+
+struct MediaSlice {
+    body: Vec<u8>,
+    saw_avc: bool,
+    has_audio: bool,
+    stamp: i64,
+}
+
+/// Forwards released video packets and studio PCM. With no targets it does nothing.
+pub struct DelayedForward {
+    legs: Vec<Leg>,
+    aac: Option<AacEncoder>,
+    avc_header: Option<Vec<u8>>,
+    asc: Option<Vec<u8>>,
+    audio_us: i64,
 }
 
 impl DelayedForward {
-    pub fn new(url: Option<String>) -> Self {
+    pub fn new(targets: Vec<PublishTarget>) -> Self {
         DelayedForward {
-            url,
-            publish: None,
+            legs: targets
+                .into_iter()
+                .map(|target| Leg {
+                    url: target.url,
+                    name: target.name,
+                    publish: None,
+                    header_sent: false,
+                    sent_asc: false,
+                    sent_avc: false,
+                    retry_after: None,
+                    attempt: 0,
+                })
+                .collect(),
             aac: None,
-            header_sent: false,
-            sent_asc: false,
-            sent_avc: false,
             avc_header: None,
+            asc: None,
             audio_us: 0,
-            retry_after: None,
-            attempt: 0,
-            announced: false,
         }
     }
 
-    pub fn write(&mut self, video: &[VideoPacket], pcm: &[f32]) -> Result<ForwardStep, String> {
-        if self.url.is_none() {
-            return Ok(ForwardStep::Idle);
+    pub fn names(&self) -> Vec<String> {
+        self.legs.iter().map(|leg| leg.name.clone()).collect()
+    }
+
+    /// Display names with an open publish process.
+    pub fn connected_names(&self) -> Vec<String> {
+        self.legs
+            .iter()
+            .filter(|leg| leg.publish.is_some())
+            .map(|leg| leg.name.clone())
+            .collect()
+    }
+
+    pub fn write(&mut self, video: &[VideoPacket], pcm: &[f32]) -> ForwardReport {
+        let mut report = ForwardReport::default();
+        if self.legs.is_empty() || (video.is_empty() && pcm.is_empty()) {
+            return report;
         }
-        if video.is_empty() && pcm.is_empty() {
-            return Ok(ForwardStep::Sent);
+        let now = Instant::now();
+        let ready: Vec<usize> = self
+            .legs
+            .iter()
+            .enumerate()
+            .filter(|(_, leg)| leg.retry_after.is_none_or(|when| now >= when))
+            .map(|(index, _)| index)
+            .collect();
+        if ready.is_empty() {
+            return report;
         }
-        if let Some(when) = self.retry_after {
-            if Instant::now() < when {
-                return Ok(ForwardStep::Waiting);
+        for index in ready.clone() {
+            if self.legs[index].publish.is_some() {
+                continue;
             }
-            self.retry_after = None;
+            let name = self.legs[index].name.clone();
+            match self.open_leg(index) {
+                Ok(()) => report.started.push(name),
+                Err(err) => {
+                    self.fail_leg(index);
+                    report.failed.push(format!("{name}: {err}"));
+                }
+            }
         }
-        let started = if self.publish.is_none() {
-            self.open().map_err(|err| err.to_string())?;
-            true
-        } else {
-            false
+        if !ready
+            .iter()
+            .any(|index| self.legs[*index].publish.is_some())
+        {
+            return report;
+        }
+        let slice = match self.media_body(video, pcm) {
+            Ok(slice) => slice,
+            Err(err) => {
+                report.failed.push(err.to_string());
+                return report;
+            }
         };
-        if let Err(err) = self.push(video, pcm) {
-            self.fail();
-            return Err(err.to_string());
+        let header = self.avc_header.clone();
+        let asc = self.asc.clone();
+        for index in ready {
+            if self.legs[index].publish.is_none() {
+                continue;
+            }
+            let url = self.legs[index].url.clone();
+            let packet = match leg_packet(
+                &mut self.legs[index],
+                &header,
+                &asc,
+                slice.stamp,
+                slice.saw_avc,
+                slice.has_audio,
+                &slice.body,
+            ) {
+                Ok(packet) => packet,
+                Err(err) => {
+                    let name = self.legs[index].name.clone();
+                    self.fail_leg(index);
+                    report.failed.push(format!("{name}: {err}"));
+                    continue;
+                }
+            };
+            let write_result = self.legs[index]
+                .publish
+                .as_mut()
+                .map(|publish| publish.write(&packet));
+            if let Some(Err(err)) = write_result {
+                let name = self.legs[index].name.clone();
+                self.fail_leg(index);
+                let text = err.to_string().replace(&url, "[redacted]");
+                report.failed.push(format!("{name}: {text}"));
+            }
         }
-        if started && !self.announced {
-            self.announced = true;
-            return Ok(ForwardStep::Started);
-        }
-        Ok(ForwardStep::Sent)
+        report
     }
 
-    fn open(&mut self) -> Result<(), MediaError> {
-        let url = self.url.clone().unwrap_or_default();
-        if self.aac.is_none() {
-            self.aac = Some(AacEncoder::start()?);
-        }
-        self.publish = Some(LivePublish::start(&url)?);
-        self.header_sent = false;
-        self.sent_asc = false;
-        self.sent_avc = false;
+    /// Closes every publisher so a local listener can finish its file.
+    pub fn finish(mut self) -> Vec<Result<(), MediaError>> {
+        self.aac.take();
+        self.legs
+            .drain(..)
+            .filter_map(|mut leg| leg.publish.take().map(|publish| publish.finish()))
+            .collect()
+    }
+
+    fn open_leg(&mut self, index: usize) -> Result<(), MediaError> {
+        let url = self.legs[index].url.clone();
+        self.legs[index].publish = Some(LivePublish::start(&url)?);
+        let leg = &mut self.legs[index];
+        leg.header_sent = false;
+        leg.sent_asc = false;
+        leg.sent_avc = false;
+        leg.retry_after = None;
         Ok(())
     }
 
-    fn fail(&mut self) {
-        self.publish.take();
-        self.attempt = self.attempt.saturating_add(1);
-        self.retry_after = Some(Instant::now() + reconnect_backoff(self.attempt));
-        self.announced = false;
+    fn fail_leg(&mut self, index: usize) {
+        let leg = &mut self.legs[index];
+        leg.publish.take();
+        leg.attempt = leg.attempt.saturating_add(1);
+        leg.retry_after = Some(Instant::now() + reconnect_backoff(leg.attempt));
+        leg.header_sent = false;
+        leg.sent_asc = false;
+        leg.sent_avc = false;
     }
 
-    fn push(&mut self, video: &[VideoPacket], pcm: &[f32]) -> Result<(), MediaError> {
-        let mut bytes = Vec::new();
-        {
-            let mut mux = if self.header_sent {
-                FlvMux::resume(&mut bytes)
-            } else {
-                self.header_sent = true;
-                FlvMux::new(&mut bytes)
-            };
-            let stored_header = self.avc_header.clone();
-            if let Some(header) = stored_header
-                && !self.sent_avc
-                && !video.iter().any(|packet| is_avc_sequence(&packet.data))
+    fn media_body(&mut self, video: &[VideoPacket], pcm: &[f32]) -> Result<MediaSlice, MediaError> {
+        let stamp = self.audio_us;
+        let mut body = Vec::new();
+        let mut mux = FlvMux::resume(&mut body);
+        let mut saw_avc = false;
+        for packet in video {
+            if is_avc_sequence(&packet.data) {
+                self.avc_header = Some(packet.data.clone());
+                saw_avc = true;
+            }
+            mux.video_tag(packet.pts, &packet.data)
+                .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+        }
+        let mut has_audio = false;
+        if !pcm.is_empty() {
+            if self.aac.is_none() {
+                self.aac = Some(AacEncoder::start()?);
+            }
+            let frames = self
+                .aac
+                .as_mut()
+                .ok_or_else(|| MediaError::Ffmpeg("aac is not running".into()))?
+                .push(pcm)?;
+            if let Some(header) = self
+                .aac
+                .as_ref()
+                .and_then(|enc| enc.sequence_header().map(|header| header.to_vec()))
             {
-                mux.video_tag(Ts(self.audio_us.max(0)), &header)
-                    .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
-                self.sent_avc = true;
+                self.asc = Some(header);
             }
-            for packet in video {
-                if is_avc_sequence(&packet.data) {
-                    self.avc_header = Some(packet.data.clone());
-                    self.sent_avc = true;
-                }
-                mux.video_tag(packet.pts, &packet.data)
+            for frame in &frames {
+                mux.audio_tag(Ts(self.audio_us.max(0)), &aac_packet(false, frame))
                     .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
-            }
-            if !pcm.is_empty() {
-                let frames = self
-                    .aac
-                    .as_mut()
-                    .ok_or_else(|| MediaError::Ffmpeg("aac is not running".into()))?
-                    .push(pcm)?;
-                let asc = self
-                    .aac
-                    .as_ref()
-                    .and_then(|enc| enc.sequence_header().map(|header| header.to_vec()));
-                if let Some(asc) = asc
-                    && !self.sent_asc
-                {
-                    mux.audio_tag(Ts(self.audio_us.max(0)), &aac_packet(true, &asc))
-                        .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
-                    self.sent_asc = true;
-                }
-                for frame in &frames {
-                    mux.audio_tag(Ts(self.audio_us.max(0)), &aac_packet(false, frame))
-                        .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
-                    self.audio_us = self.audio_us.saturating_add(1_024_000_000 / 48_000);
-                }
+                self.audio_us = self.audio_us.saturating_add(1_024_000_000 / 48_000);
+                has_audio = true;
             }
         }
-        self.publish
-            .as_mut()
-            .ok_or_else(|| MediaError::Ffmpeg("publish is not running".into()))?
-            .write(&bytes)
+        Ok(MediaSlice {
+            body,
+            saw_avc,
+            has_audio,
+            stamp,
+        })
     }
+}
+
+fn leg_packet(
+    leg: &mut Leg,
+    avc_header: &Option<Vec<u8>>,
+    asc: &Option<Vec<u8>>,
+    stamp: i64,
+    saw_avc: bool,
+    has_audio: bool,
+    body: &[u8],
+) -> Result<Vec<u8>, MediaError> {
+    let mut packet = Vec::new();
+    if !leg.header_sent {
+        packet.extend_from_slice(&flv_file_header());
+        leg.header_sent = true;
+    }
+    let mut mux = FlvMux::resume(&mut packet);
+    if let Some(header) = avc_header
+        && !leg.sent_avc
+        && !saw_avc
+    {
+        mux.video_tag(Ts(stamp.max(0)), header)
+            .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+        leg.sent_avc = true;
+    }
+    if saw_avc {
+        leg.sent_avc = true;
+    }
+    if let Some(header) = asc
+        && !leg.sent_asc
+        && has_audio
+    {
+        mux.audio_tag(Ts(stamp.max(0)), &aac_packet(true, header))
+            .map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
+        leg.sent_asc = true;
+    }
+    packet.extend_from_slice(body);
+    Ok(packet)
+}
+
+fn flv_file_header() -> [u8; 13] {
+    let mut header = [0u8; 13];
+    header[..3].copy_from_slice(b"FLV");
+    header[3] = 1;
+    header[4] = 0x05;
+    header[5..9].copy_from_slice(&9u32.to_be_bytes());
+    header
 }
 
 impl Drop for DelayedForward {
     fn drop(&mut self) {
-        self.publish.take();
+        for leg in &mut self.legs {
+            leg.publish.take();
+        }
         self.aac.take();
     }
 }
@@ -617,5 +752,172 @@ mod tests {
         }
         assert!(len > 100, "listener file was {len} bytes");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn two_named_destinations_stay_listed_when_there_is_nothing_to_send() {
+        let forward = DelayedForward::new(vec![
+            PublishTarget {
+                url: "rtmp://127.0.0.1:1/live/one".into(),
+                name: "Twitch".into(),
+            },
+            PublishTarget {
+                url: "rtmp://127.0.0.1:2/live/two".into(),
+                name: "YouTube".into(),
+            },
+        ]);
+        assert_eq!(forward.names(), ["Twitch", "YouTube"]);
+        let mut forward = forward;
+        let report = forward.write(&[], &[]);
+        assert!(report.started.is_empty());
+        assert!(report.failed.is_empty());
+    }
+
+    #[test]
+    fn both_legs_are_prefixed_once_and_then_share_the_body() {
+        let body = vec![9, 8, 7, 6];
+        let mut twitch = Leg {
+            url: "rtmp://127.0.0.1/live/secret".into(),
+            name: "Twitch".into(),
+            publish: None,
+            header_sent: false,
+            sent_asc: false,
+            sent_avc: false,
+            retry_after: None,
+            attempt: 0,
+        };
+        let mut youtube = Leg {
+            url: "rtmp://127.0.0.1/live/other".into(),
+            name: "YouTube".into(),
+            publish: None,
+            header_sent: false,
+            sent_asc: false,
+            sent_avc: false,
+            retry_after: None,
+            attempt: 0,
+        };
+        let first = leg_packet(&mut twitch, &None, &None, 0, false, false, &body).unwrap();
+        let second = leg_packet(&mut youtube, &None, &None, 0, false, false, &body).unwrap();
+        assert_eq!(first, second);
+        assert!(first.starts_with(b"FLV"));
+        assert!(first.ends_with(&body));
+        let again = leg_packet(&mut twitch, &None, &None, 0, false, false, &body).unwrap();
+        assert_eq!(again, body);
+        assert!(!again.windows(3).any(|mark| mark == b"FLV"));
+    }
+
+    #[test]
+    fn the_same_file_reaches_two_listeners_and_a_failure_hides_the_key() {
+        if Command::new("ffmpeg")
+            .arg("-version")
+            .status()
+            .map(|status| !status.success())
+            .unwrap_or(true)
+        {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("airlock-multi-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("in.flv");
+        let made = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=1",
+                "-c:a",
+                "aac",
+                "-f",
+                "flv",
+            ])
+            .arg(&src)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        let bytes = std::fs::read(&src).unwrap();
+        let keys = ["twitch-test-key", "youtube-test-key"];
+        let mut listeners = Vec::new();
+        let mut urls = Vec::new();
+        for (index, key) in keys.iter().enumerate() {
+            let port = {
+                let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+                listener.local_addr().unwrap().port()
+            };
+            let url = format!("rtmp://127.0.0.1:{port}/live/{key}");
+            let out = dir.join(format!("out-{index}.flv"));
+            let listen = Command::new("ffmpeg")
+                .args([
+                    "-y",
+                    "-loglevel",
+                    "error",
+                    "-rtmp_listen",
+                    "1",
+                    "-timeout",
+                    "8",
+                    "-i",
+                    &url,
+                    "-c",
+                    "copy",
+                ])
+                .arg(&out)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap();
+            listeners.push(listen);
+            urls.push(url);
+            std::thread::sleep(Duration::from_millis(300));
+        }
+        std::thread::sleep(Duration::from_millis(200));
+        let mut publishes = Vec::new();
+        for url in &urls {
+            publishes.push(LivePublish::start(url).unwrap());
+        }
+        for publish in &mut publishes {
+            publish.write(&bytes).unwrap();
+        }
+        for publish in publishes {
+            let finished = publish.finish();
+            if let Err(err) = &finished {
+                let text = err.to_string();
+                for key in keys {
+                    assert!(!text.contains(key), "{text}");
+                }
+            }
+            assert!(finished.is_ok());
+        }
+        for listen in &mut listeners {
+            let _ = listen.wait();
+        }
+        for index in 0..keys.len() {
+            let len = std::fs::metadata(dir.join(format!("out-{index}.flv")))
+                .map(|meta| meta.len())
+                .unwrap_or(0);
+            assert!(len > 100, "listener {index} file was {len} bytes");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn one_leg_failure_leaves_the_other_ready() {
+        let mut forward = DelayedForward::new(vec![
+            PublishTarget {
+                url: "rtmp://127.0.0.1/live/secret".into(),
+                name: "Twitch".into(),
+            },
+            PublishTarget {
+                url: "rtmp://127.0.0.1/live/other".into(),
+                name: "YouTube".into(),
+            },
+        ]);
+        forward.fail_leg(0);
+        assert!(forward.legs[0].retry_after.is_some());
+        assert!(forward.legs[0].publish.is_none());
+        assert!(forward.legs[1].retry_after.is_none());
     }
 }

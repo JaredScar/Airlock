@@ -10,6 +10,7 @@ members = [
     "crates/airlock-pipeline",
     "crates/airlock-eval",
     "apps/desktop/src-tauri",
+    "apps/obs-plugin",
 ]
 # `cargo test` / `cargo check` at the root only touch the engine crates, so they
 # run on any machine without Tauri's system deps (webkit2gtk on Linux).
@@ -27,7 +28,7 @@ default-members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "UNLICENSED"
+license = "MIT"
 authors = ["Jared Scarito <thewolfbadger@gmail.com>"]
 
 [workspace.dependencies]

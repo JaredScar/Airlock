@@ -31,8 +31,9 @@ export class SettingsComponent {
   readonly termDraft = signal('');
   readonly keyDraft = signal('');
   readonly speechKeyDraft = signal('');
-  readonly licenseDraft = signal('');
   readonly streamKeyDraft = signal('');
+  readonly obsPasswordDraft = signal('');
+  readonly moderatorPasswordDraft = signal('');
   readonly shortcuts = [
     { id: 'veto' as const, label: 'Veto next' },
     { id: 'approve' as const, label: 'Approve next' },
@@ -42,6 +43,12 @@ export class SettingsComponent {
 
   downloadModel() {
     void this.studio.downloadModel();
+  }
+
+  onDestination(id: 'twitch' | 'youtube' | 'kick', event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    if (!this.studio.setDestination(id, input.checked)) input.checked = this.studio.isDestination(id);
   }
 
   platformName(): string {
@@ -133,22 +140,6 @@ export class SettingsComponent {
     else this.studio.setCategory(id, { pad_after_ms: ms });
   }
 
-  onLicense(event: Event) {
-    const input = event.target;
-    if (input instanceof HTMLInputElement) this.licenseDraft.set(input.value);
-  }
-
-  async saveLicense(event: Event) {
-    event.preventDefault();
-    const saved = await this.studio.setLicense(this.licenseDraft());
-    if (saved) this.licenseDraft.set('');
-  }
-
-  resetLicense() {
-    this.licenseDraft.set('');
-    this.studio.clearLicense();
-  }
-
   onTelemetry(event: Event) {
     const input = event.target;
     if (input instanceof HTMLInputElement) this.studio.setTelemetry(input.checked);
@@ -198,6 +189,56 @@ export class SettingsComponent {
     const draft = this.streamKeyDraft();
     await this.studio.saveStreamKey(draft);
     if (this.studio.streamKeySaved()) this.streamKeyDraft.set('');
+  }
+
+  onModerator(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setModeratorEnabled(input.checked);
+  }
+
+  onModeratorPort(event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    const port = Number(input.value);
+    if (!Number.isFinite(port)) {
+      input.value = String(this.studio.settings().moderator_port);
+      return;
+    }
+    this.studio.setModeratorPort(port);
+  }
+
+  onModeratorPassword(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.moderatorPasswordDraft.set(input.value);
+  }
+
+  saveModeratorPassword() {
+    void this.studio.saveModeratorPassword(this.moderatorPasswordDraft());
+    this.moderatorPasswordDraft.set('');
+  }
+
+  onStartWithObs(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.studio.setStartWithObs(input.checked);
+  }
+
+  onObsPassword(event: Event) {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) this.obsPasswordDraft.set(input.value);
+  }
+
+  saveObsPassword() {
+    void this.studio.saveObsPassword(this.obsPasswordDraft());
+    this.obsPasswordDraft.set('');
+  }
+
+  onSourceScan(name: string, event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLSelectElement)) return;
+    const value = input.value;
+    if (value === 'always' || value === 'never' || value === 'default') {
+      this.studio.setSourceScan(name, value);
+    }
   }
 
   shortcutValue(id: 'veto' | 'approve' | 'dump' | 'safe'): string {

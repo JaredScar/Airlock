@@ -10,6 +10,7 @@ pub mod decision;
 pub mod error;
 pub mod model;
 pub mod policy;
+pub mod sample_delay;
 pub mod time;
 
 pub use buffer::{DelayLine, DelayRamp};
@@ -17,4 +18,5 @@ pub use decision::{Action, DecisionEngine, Redaction, RedactionId, Status, Targe
 pub use error::{Error, Result};
 pub use model::{Category, Detection, DetectorKind, Modality, Platform, Rect, TextBox, Word};
 pub use policy::{AudioAction, CategoryPolicy, Mode, Policy, StallFallback, VideoAction};
+pub use sample_delay::SampleDelay;
 pub use time::{Dur, Span, Ts};

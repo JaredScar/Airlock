@@ -36,6 +36,7 @@ export class AirlockService {
   readonly egress = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly stall = signal<string | null>(null);
+  readonly moderator = signal<string | null>(null);
 
   /** Redactions still inside the delay window, soonest first. */
   readonly upcoming = computed(() =>
@@ -51,6 +52,14 @@ export class AirlockService {
     if (this.listening || !inDesktopShell()) return;
     this.listening = true;
     await listen<UiEvent>(EVENT_CHANNEL, (e) => this.zone.run(() => this.apply(e.payload)));
+    await listen('airlock://session-started', () => this.zone.run(() => this.noteStarted()));
+  }
+
+  noteStarted() {
+    this.stopFixture();
+    this.reset();
+    this.running.set(true);
+    this.ingest.set(false);
   }
 
   async startLive(): Promise<void> {
@@ -60,9 +69,7 @@ export class AirlockService {
     }
     this.stopFixture();
     await this.ensureListening();
-    this.reset();
-    this.running.set(true);
-    this.ingest.set(false);
+    this.noteStarted();
     try {
       await invoke('start_live');
     } catch (e) {
@@ -268,6 +275,9 @@ export class AirlockService {
         break;
       case 'egress':
         this.egress.set(ev.detail);
+        break;
+      case 'moderator':
+        this.moderator.set(ev.detail ? ev.detail : null);
         break;
       default: {
         const unexpected: never = ev;

@@ -35,7 +35,9 @@
   <div class="actions">
     <nav class="views" aria-label="Views">
       <button [class.on]="page() === 'live'" (click)="page.set('live')">On air</button>
+      <button [class.on]="page() === 'setup'" (click)="page.set('setup')">Setup</button>
       <button [class.on]="page() === 'settings'" (click)="page.set('settings')">Settings</button>
+      <button [class.on]="page() === 'moderator'" (click)="page.set('moderator')">Moderator</button>
     </nav>
     <button [class.on]="compact()" [attr.aria-pressed]="compact()" (click)="toggleCompact()">Compact</button>
     <button [class.on]="light()" [attr.aria-pressed]="light()" (click)="toggleTheme()">{{ light() ? 'Dark' : 'Light' }}</button>
@@ -59,6 +61,10 @@
 
 @if (page() === 'settings') {
   <app-settings />
+} @else if (page() === 'setup') {
+  <app-wizard />
+} @else if (page() === 'moderator') {
+  <app-moderator />
 } @else {
 <details class="setup">
   <summary>
@@ -69,7 +75,7 @@
   <div class="setup-body">
     <div>
       <p>Point OBS or Streamlabs Desktop at this PC, not at the platform. Airlock holds the stream, then forwards the clean copy. The key <code>airlock</code> is only this hop. The platform key stays in the OS keychain.</p>
-      <p><b>OBS.</b> Settings → Stream → Service: Custom. Server <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>.</p>
+      <p><b>OBS.</b> Settings → Stream → Service: Custom. Server <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>. Airlock can open its listener when OBS opens. That switch is in Settings. Closing this window leaves Airlock in the tray.</p>
       <p><b>Streamlabs Desktop.</b> Settings → Stream → Stream to custom ingest. Stream type: Custom Streaming Server. URL <code>rtmp://127.0.0.1:1935/live</code>. Stream key <code>airlock</code>.</p>
     </div>
     <ul>
@@ -104,6 +110,9 @@
   <span>GPU <b title="Shown when a broadcast is connected">—</b></span>
 </section>
 @if (al.egress(); as note) {
+  <p class="egress">{{ note }}</p>
+}
+@if (al.moderator(); as note) {
   <p class="egress">{{ note }}</p>
 }
 

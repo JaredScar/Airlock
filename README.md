@@ -1,36 +1,50 @@
 # Airlock
 
-A broadcast delay with a brain. OBS or Streamlabs Desktop streams into Airlock on your PC; Airlock holds the stream
-for a few seconds, catches what shouldn't air, and redacts it before it reaches
-Twitch/YouTube/Kick:
+A free, open-source broadcast delay. OBS or Streamlabs Desktop sends the stream to Airlock on your PC. Airlock holds it for a few seconds, catches what should not air, and forwards the clean copy to Twitch, YouTube, or Kick.
 
-- **Swearing and slurs**: bleeped (token-based, leetspeak-aware wordlists)
-- **Self-doxxing**: your address, phone, email, or private terms (real name, school, town) muted
-- **Secrets on screen**: stream keys, API keys, tokens, private keys pixelated, retroactively
-- **Context risks**: an LLM judge flags ToS-risk speech that has no bad words in it
-- **You stay in control**: every flag shows a countdown; veto or approve before it airs. Dump button included.
+There is no subscription and no license key. The judge, on-screen scanning, and a second destination are included. Speech and the judge run on your machine. Cloud speech and the cloud judge stay off until you turn them on, and those keys stay in the OS keychain.
 
-Local-first: Whisper and Ollama on your GPU by default. Cloud providers are opt-in.
+The application is [MIT licensed](LICENSE). The OBS audio-delay plugin in `apps/obs-plugin` is GPL-2.0-or-later because it links OBS.
 
-> Status: early. The engine (policy, decision engine, detectors, session) is implemented and
-> tested; the desktop app runs a demo stream through it. Real ingest/egress, Whisper, the LLM
-> judge and OCR are next. See [PLAN.md](PLAN.md).
+- **Swearing and slurs** are bleeped.
+- **Spoken private information** (an address, phone number, or a term you listed) is muted.
+- **Secrets on screen**, such as a stream key, are pixelated.
+- **Context** with no bad word in it can still be flagged by the local judge.
+- **You stay in control.** Each flag counts down. Veto it, let it air, or dump the hold.
+- **Every destination you check** gets the same cleaned stream.
 
-![Airlock demo: review queue, transcript with redactions, incident log](docs/demo.png)
+## On air
 
-## Quick start (dev)
+The hold, the marked transcript, and the incident log during the built-in demo.
 
-Prereqs: Rust (stable), Node 22+, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+![On air: a private term is muted in the hold, the transcript is marked, and the incident log shows what already aired](docs/screenshots/on-air.png)
+
+## Setup
+
+Point OBS at this PC, then save the platform key in the OS keychain. OBS keeps the local key `airlock`.
+
+![Setup: detect this PC, choose Twitch, YouTube, or Kick, and point OBS at Airlock](docs/screenshots/setup.png)
+
+## Settings
+
+Destinations, private terms, and the delay.
+
+![Settings: Twitch, YouTube, and Kick, private terms kept on this PC, and an 8 second delay](docs/screenshots/settings.png)
+
+## Quick start
+
+Prerequisites: Rust (stable), Node 22+, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
 
 ```bash
 cargo test                        # engine tests
 cd apps/desktop
 npm install
-npm run tauri dev                 # then click "Run demo"
+npm run tauri dev                 # then click Demo, then Run demo
 ```
 
 ## Docs
 
-- [PLAN.md](PLAN.md): phased task list with checkboxes (agents update it as they go)
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): pipeline, crates, latency budget, core rules
-- [AGENTS.md](AGENTS.md): conventions for AI coding agents
+- [PLAN.md](PLAN.md): phased task list
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): pipeline, crates, and core rules
+- [docs/PRIVACY.md](docs/PRIVACY.md): what stays on this PC
+- [AGENTS.md](AGENTS.md): conventions for coding agents

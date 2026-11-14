@@ -2,7 +2,15 @@
 import type { Platform } from "./Platform";
 import type { Policy } from "./Policy";
 
-export type StudioSettings = { platform: Platform, 
+export type StudioSettings = { 
+/**
+ * The platform whose stream key and rules are on screen.
+ */
+platform: Platform, 
+/**
+ * Destinations that receive the cleaned stream. Empty means `platform` only.
+ */
+destinations: Array<Platform>, 
 /**
  * The streamer's own judge rules, per destination. Not the shipped pack.
  */
@@ -28,10 +36,30 @@ cloud_judge_consent: boolean,
  */
 cloud_stt_consent: boolean, shortcut_veto: string, shortcut_approve: string, shortcut_dump: string, shortcut_safe: string, 
 /**
- * Empty until the streamer pastes a Pro key. Checked offline.
+ * Kept so an older settings file still loads. It does not turn features on or off.
  */
 license_key: string, 
 /**
  * Crash and latency reports. Off, and there is no destination unless one is set.
  */
-telemetry_opt_in: boolean, };
+telemetry_opt_in: boolean, 
+/**
+ * Open the local listener when OBS Studio's process appears.
+ */
+start_with_obs: boolean, 
+/**
+ * OBS source names that are screenshotted even when they are not on the program scene.
+ */
+scan_always: Array<string>, 
+/**
+ * OBS source names that are never screenshotted.
+ */
+scan_never: Array<string>, 
+/**
+ * A moderator on another computer may approve or veto during the delay.
+ */
+moderator_enabled: boolean, 
+/**
+ * TCP port for that connection. The default is 1940.
+ */
+moderator_port: number, };

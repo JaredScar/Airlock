@@ -44,28 +44,27 @@ fn encode_redacted_cuda(input: &Path, output: &Path, rect: Rect) -> Result<(), M
     let (x, y, w, h) = gpu_region(width, height, rect)?;
     let down_w = (w / 8).max(2);
     let down_h = (h / 8).max(2);
-    let graph = format!(
+    let uploaded = format!(
         "[0:v]split[main][c];\
          [c]crop={w}:{h}:{x}:{y},format=nv12,hwupload_cuda,\
          scale_cuda=w={down_w}:h={down_h}:interp_algo=nearest,\
          scale_cuda=w={w}:h={h}:interp_algo=nearest[pix];\
          [main]format=nv12,hwupload_cuda[base];\
-         [base][pix]overlay_cuda=x={x}:y={y},hwdownload,format=nv12"
+         [base][pix]overlay_cuda=x={x}:y={y}"
     );
     if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent).map_err(|err| MediaError::Ffmpeg(err.to_string()))?;
     }
-    // NVENC rejects frames under its minimum size. The filter still ran on the GPU;
-    // a small test clip is encoded with x264 so the pixels can be checked.
-    let encoder = if width >= 256 && height >= 128 {
-        "h264_nvenc"
-    } else {
-        "libx264"
-    };
-    if encoder == "h264_nvenc" && run_cuda_graph(input, output, &graph, encoder).is_ok() {
+    // NVENC can encode the CUDA frames directly. Downloading them first
+    // uploads the same picture again and is what pushed the GPU column up.
+    if width >= 256
+        && height >= 128
+        && run_cuda_graph(input, output, &uploaded, "h264_nvenc").is_ok()
+    {
         return Ok(());
     }
-    run_cuda_graph(input, output, &graph, "libx264")
+    let downloaded = format!("{uploaded},hwdownload,format=nv12");
+    run_cuda_graph(input, output, &downloaded, "libx264")
 }
 
 fn run_cuda_graph(
@@ -74,30 +73,25 @@ fn run_cuda_graph(
     graph: &str,
     encoder: &str,
 ) -> Result<(), MediaError> {
-    let output_cmd = Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-loglevel",
-            "error",
-            "-init_hw_device",
-            "cuda=cu:0",
-            "-filter_hw_device",
-            "cu",
-            "-i",
-        ])
-        .arg(input)
-        .args([
-            "-filter_complex",
-            graph,
-            "-an",
-            "-c:v",
-            encoder,
-            "-pix_fmt",
-            "yuv420p",
-        ])
-        .arg(output)
-        .output()
-        .map_err(io_error)?;
+    let mut cmd = Command::new("ffmpeg");
+    cmd.args([
+        "-y",
+        "-loglevel",
+        "error",
+        "-init_hw_device",
+        "cuda=cu:0",
+        "-filter_hw_device",
+        "cu",
+        "-i",
+    ])
+    .arg(input)
+    .args(["-filter_complex", graph, "-an", "-c:v", encoder]);
+    if encoder == "h264_nvenc" {
+        cmd.args(["-preset", "p1", "-tune", "ll", "-rc", "cbr", "-b:v", "6M"]);
+    } else {
+        cmd.args(["-pix_fmt", "yuv420p"]);
+    }
+    let output_cmd = cmd.arg(output).output().map_err(io_error)?;
     if output_cmd.status.success() {
         Ok(())
     } else {
@@ -175,11 +169,7 @@ fn video_info(path: &Path) -> Result<(u32, u32, u32), MediaError> {
             let (num, den) = value.split_once('/')?;
             let num: u32 = num.parse().ok()?;
             let den: u32 = den.parse().ok()?;
-            if den == 0 {
-                None
-            } else {
-                Some((num / den).max(1))
-            }
+            num.checked_div(den).map(|rate| rate.max(1))
         })
         .unwrap_or(30);
     Ok((width, height, rate))

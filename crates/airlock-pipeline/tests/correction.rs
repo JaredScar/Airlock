@@ -115,6 +115,17 @@ fn a_word_repeated_by_the_next_listen_is_kept_once() {
 }
 
 #[test]
+fn repeated_digits_stay_in_the_transcript() {
+    let mut session = Session::new(SessionConfig::default());
+    session.on_words(vec![
+        Word::new("five", Span::from_millis(1_000, 1_200), 0.9),
+        Word::new("five", Span::from_millis(1_300, 1_500), 0.9),
+        Word::new("five", Span::from_millis(1_600, 1_800), 0.9),
+    ]);
+    assert_eq!(texts(&session), vec!["five", "five", "five"]);
+}
+
+#[test]
 fn a_quiet_swear_is_still_bleeped() {
     let mut session = Session::new(SessionConfig::default());
     session.on_words(vec![Word::new(

@@ -7,7 +7,7 @@ Written 2026-10-31. This is only the work that cannot be finished from the code.
 - [x] Restart Airlock so it is running the latest build.
 - [x] In Streamlabs Desktop, use one destination only: Settings → Stream → Stream to custom ingest → Custom Streaming Server. URL `rtmp://127.0.0.1:1935/live`. Stream key `airlock`. Leave the Twitch destination off in Streamlabs. That key is only the hop from Streamlabs to this PC.
 - [x] In Airlock Settings → Platform, save the Twitch stream key from Twitch's stream settings. This is the platform stream key, not an API client secret. After Go live, the status should read "Forwarding to Twitch." once the 8 second hold has passed. Ingest should read Connected.
-- [x] Paste this development Pro license into Settings → License: `pro.2ee0536332375def1366cd3be1e70e96fb796986c1cc44b88613562ed07b87a7`. Word lists, dump, and spoken personal info work without it. The context judge, on-screen scanning, and cloud speech need it.
+- [x] No license key. The judge, on-screen scanning, cloud speech, and a second destination are included.
 - [x] Speech stays on this PC with the Whisper model already in the app data folder. Cloud speech stays off unless you check "Audio may be sent to Deepgram for speech recognition" and save a Deepgram key in that same panel.
 - [ ] The context judge uses Ollama at `127.0.0.1:11434` with model `qwen3:8b` unless you check "Transcript text may leave this PC" and save an Anthropic key. Start Ollama before Go live if you want the local judge.
 
@@ -23,7 +23,7 @@ App data for a saved copy of a session is `%APPDATA%\com.badger.airlock`.
 ## Decisions, whenever you want them
 
 - [ ] Final product name. "Airlock" is a working name and still needs a trademark check.
-- [ ] Pricing: one-time purchase or subscription, and what stays in the free tier.
+- [x] Pricing: the app is free. There is no subscription and no paid tier.
 - [ ] Should Dump also rebuild the delay, or only mute what is still in the hold? Today it mutes the hold and does not rebuild the delay.
 
 ## Bring these when you have them
@@ -32,7 +32,7 @@ These stay open until the thing named here exists. None of them block a normal b
 
 - [x] **2.2** Install the CUDA toolkit if you want Whisper on the GPU. Today it runs `small.en` on the CPU. The bar is a word finalized within 1.5 seconds on this RTX 5090.
 - [ ] **2.6** A licensed slur list. `config/wordlists/slurs.txt` stays empty on purpose. Extra profanity and allowlist lines are already in Settings.
-- [ ] **4.6, 5.3, 5.8** OBS, if you want scene names, automatic encoder setup, and "start when OBS launches." Streamlabs is already a first-class publisher. The tray Show and Quit menu is already in the app.
+- [x] **4.6, 5.3** OBS WebSocket is on. Settings can mark sources always-scan or never-scan. Setup can point OBS at the local ingest. The WebSocket password goes in the app, not in chat.
 - [ ] **6.2 and 3.8** A recording of real speech over game noise. The eval clips already cover a swear, a phone number, and a threat. The 0.85 ToS-risk score waits on that recording.
 - [ ] **8.1** A code-signing certificate and an update host. An unsigned Windows installer already exists.
 - [ ] **8.2** A Mac, for the Mac build and Apple Vision text recognition.

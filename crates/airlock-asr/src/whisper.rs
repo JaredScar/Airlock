@@ -94,6 +94,17 @@ impl WhisperRecognizer {
             })
         }
     }
+
+    /// One pass over a whole clip. Used to compare the live recognizer with
+    /// offline Whisper. It does not use the live window or the commit policy.
+    #[cfg(feature = "whisper")]
+    pub fn transcribe_clip(&mut self, audio: &[f32]) -> Result<Vec<Word>, AsrError> {
+        let heard = self.decode_slice(audio, Ts::ZERO, false)?;
+        Ok(heard
+            .into_iter()
+            .map(|word| Word::new(word.text, Span::new(word.start, word.end), word.confidence))
+            .collect())
+    }
 }
 
 /// Buffers 16 kHz audio and emits a window, then keeps the overlap for the next hop.
@@ -506,7 +517,7 @@ impl WhisperRecognizer {
 
     #[cfg(feature = "whisper")]
     fn run_model(&mut self, audio: &[f32], at: Ts, complete: bool) -> Result<Vec<Word>, AsrError> {
-        let mut heard = self.decode_slice(audio, at)?;
+        let mut heard = self.decode_slice(audio, at, true)?;
         if let Some(last) = heard.last() {
             let covered = (last.end.0 - at.0).max(0);
             let total = (audio.len() as i64) * 1_000_000 / i64::from(ASR_SAMPLE_RATE);
@@ -516,7 +527,7 @@ impl WhisperRecognizer {
                     let rest = &audio[skip..];
                     if rest.len() >= (ASR_SAMPLE_RATE / 2) as usize {
                         let origin = at + Dur(covered);
-                        if let Ok(more) = self.decode_slice(rest, origin) {
+                        if let Ok(more) = self.decode_slice(rest, origin, true) {
                             heard.extend(more);
                             heard.sort_by_key(|word| (word.start, word.end));
                         }
@@ -531,7 +542,12 @@ impl WhisperRecognizer {
     /// One Whisper pass. The decoder stops after its first phrase, so the caller
     /// decodes whatever audio that phrase did not cover.
     #[cfg(feature = "whisper")]
-    fn decode_slice(&mut self, audio: &[f32], at: Ts) -> Result<Vec<Heard>, AsrError> {
+    fn decode_slice(
+        &mut self,
+        audio: &[f32],
+        at: Ts,
+        single_segment: bool,
+    ) -> Result<Vec<Heard>, AsrError> {
         let mut samples = audio.to_vec();
         if samples.len() < ASR_SAMPLE_RATE as usize {
             samples.resize(ASR_SAMPLE_RATE as usize, 0.0);
@@ -547,7 +563,7 @@ impl WhisperRecognizer {
         params.set_print_realtime(false);
         params.set_print_special(false);
         params.set_print_timestamps(false);
-        params.set_single_segment(true);
+        params.set_single_segment(single_segment);
         params.set_suppress_blank(true);
         params.set_suppress_nst(true);
         params.set_token_timestamps(true);

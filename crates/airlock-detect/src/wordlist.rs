@@ -170,4 +170,22 @@ mod tests {
         assert_eq!(d.scan(&words("you ass")).len(), 1);
         assert_eq!(d.scan(&words("you asssss")).len(), 1);
     }
+
+    #[test]
+    fn slurs_match_without_catching_ordinary_words() {
+        let mut d = WordlistDetector::new();
+        d.add_list(
+            Category::Slur,
+            include_str!("../../../config/wordlists/slurs.txt"),
+        );
+        let hits = d.scan(&words("you nigger"));
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].category, Category::Slur);
+        assert!(
+            d.scan(&words(
+                "the japanese pakistan spice cooperate niggardly class"
+            ))
+            .is_empty()
+        );
+    }
 }

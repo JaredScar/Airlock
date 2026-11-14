@@ -8,6 +8,7 @@ const STORAGE_KEY = 'airlock.studio.v1';
 /** Mirrors `Policy::default()` and `StudioSettings::default()`. */
 export const DEFAULT_STUDIO: StudioSettings = {
   platform: 'twitch',
+  destinations: [],
   rules_twitch: [],
   rules_youtube: [],
   rules_kick: [],
@@ -22,6 +23,11 @@ export const DEFAULT_STUDIO: StudioSettings = {
   shortcut_safe: 'F11',
   license_key: '',
   telemetry_opt_in: false,
+  start_with_obs: true,
+  scan_always: [],
+  scan_never: [],
+  moderator_enabled: false,
+  moderator_port: 1940,
   policy: {
     delay_ms: 8000,
     merge_gap_ms: 250,
@@ -48,11 +54,18 @@ export class StudioService {
   readonly modelProgress = signal<number | null>(null);
   readonly modelNote = signal('The file is kept only after its checksum matches.');
   readonly streamKeySaved = signal(false);
-  readonly licenseNote = signal('Paste a Pro license and press Save license.');
-  readonly pro = signal(false);
-
+  readonly obsSources = signal<string[]>([]);
+  readonly obsTargets = signal<string[]>([]);
+  readonly obsNote = signal('Save the OBS WebSocket password, then refresh the source list.');
+  readonly obsPasswordSaved = signal(false);
+  readonly moderatorNote = signal(
+    'Save a password, then turn the connection on. It opens when you go live.',
+  );
   constructor() {
-    if (inDesktopShell()) void this.pullFromDesktop();
+    if (inDesktopShell()) {
+      void this.pullFromDesktop();
+      void this.refreshModeratorPassword();
+    }
     void this.refreshPack();
   }
 
@@ -68,8 +81,55 @@ export class StudioService {
   }
 
   choosePlatform(platform: StudioSettings['platform']) {
-    this.commit({ ...this.settings(), platform });
+    this.focusDestination(platform);
+  }
+
+  selectedDestinations(): Array<'twitch' | 'youtube' | 'kick'> {
+    const saved = this.settings().destinations.filter((id) => id === 'twitch' || id === 'youtube' || id === 'kick');
+    if (saved.length) return saved;
+    const platform = this.settings().platform;
+    if (platform === 'twitch' || platform === 'youtube' || platform === 'kick') return [platform];
+    return ['twitch'];
+  }
+
+  isDestination(id: 'twitch' | 'youtube' | 'kick'): boolean {
+    return this.selectedDestinations().includes(id);
+  }
+
+  destinationLabel(): string {
+    const names = { twitch: 'Twitch', youtube: 'YouTube', kick: 'Kick' } as const;
+    const list = this.selectedDestinations().map((id) => names[id]);
+    if (list.length <= 1) return list[0] ?? 'Twitch';
+    if (list.length === 2) return `${list[0]} and ${list[1]}`;
+    return `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
+  }
+
+  /** Returns false when the checkbox should stay as it was. */
+  setDestination(id: 'twitch' | 'youtube' | 'kick', on: boolean): boolean {
+    const current = this.selectedDestinations();
+    if (on) {
+      const adding = !current.includes(id);
+      const destinations = adding ? [...current, id] : current;
+      this.commit({ ...this.settings(), destinations, platform: id });
+    } else {
+      const destinations = current.filter((item) => item !== id);
+      if (!destinations.length) {
+        this.error.set('Keep at least one destination.');
+        return false;
+      }
+      const platform = this.settings().platform === id ? destinations[0] : this.settings().platform;
+      this.commit({ ...this.settings(), destinations, platform });
+    }
     void this.refreshStreamKey();
+    void this.refreshPack();
+    return true;
+  }
+
+  focusDestination(platform: StudioSettings['platform']) {
+    const destinations = this.selectedDestinations();
+    this.commit({ ...this.settings(), platform, destinations });
+    void this.refreshStreamKey();
+    void this.refreshPack();
   }
 
   async saveStreamKey(key: string) {
@@ -163,64 +223,99 @@ export class StudioService {
     this.commit({ ...this.settings(), cloud_stt_consent });
   }
 
-  async setLicense(license_key: string): Promise<boolean> {
-    const key = license_key.trim();
-    if (!key) return false;
-    const pro = await this.licenseIsPro(key);
-    if (inDesktopShell() && !pro) {
-      this.licenseNote.set(
-        this.settings().license_key
-          ? 'That key was not accepted. The saved license is unchanged.'
-          : 'That key was not accepted. Pro stays off.',
-      );
-      return false;
-    }
-    this.commit({ ...this.settings(), license_key: key });
-    this.pro.set(inDesktopShell());
-    this.licenseNote.set(
-      inDesktopShell()
-        ? 'Pro is on. The context judge, on-screen scanning, and cloud speech apply the next time you go live.'
-        : 'License saved in this preview. Pro is checked in the desktop app.',
-    );
-    return true;
-  }
-
-  clearLicense() {
-    this.commit({ ...this.settings(), license_key: '' });
-    this.pro.set(false);
-    this.licenseNote.set('Pro is off until a license is saved.');
-  }
-
-  async refreshLicense(key = this.settings().license_key) {
-    if (!key) {
-      this.pro.set(false);
-      this.licenseNote.set('Pro is off until a license is saved.');
-      return;
-    }
-    if (!inDesktopShell()) {
-      this.pro.set(false);
-      this.licenseNote.set('A license is saved in this preview. Pro is checked in the desktop app.');
-      return;
-    }
-    const pro = await this.licenseIsPro(key);
-    this.pro.set(pro);
-    this.licenseNote.set(
-      pro
-        ? 'Pro is on. The context judge, on-screen scanning, and cloud speech apply the next time you go live.'
-        : 'The saved license was not accepted. Pro stays off.',
-    );
-  }
-
-  private async licenseIsPro(key: string): Promise<boolean> {
-    try {
-      return await invoke<boolean>('license_is_pro', { key });
-    } catch {
-      return false;
-    }
-  }
-
   setTelemetry(telemetry_opt_in: boolean) {
     this.commit({ ...this.settings(), telemetry_opt_in });
+  }
+
+  setStartWithObs(start_with_obs: boolean) {
+    this.commit({ ...this.settings(), start_with_obs });
+  }
+
+  setSourceScan(name: string, mode: 'always' | 'never' | 'default') {
+    const drop = (list: string[]) => list.filter((item) => item.toLowerCase() !== name.toLowerCase());
+    let scan_always = drop(this.settings().scan_always);
+    let scan_never = drop(this.settings().scan_never);
+    if (mode === 'always') scan_always = [...scan_always, name];
+    if (mode === 'never') scan_never = [...scan_never, name];
+    this.commit({ ...this.settings(), scan_always, scan_never });
+    void this.refreshObsSources();
+  }
+
+  sourceMode(name: string): 'always' | 'never' | 'default' {
+    const lower = name.toLowerCase();
+    if (this.settings().scan_never.some((item) => item.toLowerCase() === lower)) return 'never';
+    if (this.settings().scan_always.some((item) => item.toLowerCase() === lower)) return 'always';
+    return 'default';
+  }
+
+  setModeratorEnabled(on: boolean) {
+    this.commit({ ...this.settings(), moderator_enabled: on });
+  }
+
+  setModeratorPort(port: number) {
+    if (!Number.isFinite(port)) return;
+    const moderator_port = Math.min(65535, Math.max(1, Math.round(port)));
+    this.commit({ ...this.settings(), moderator_port });
+  }
+
+  async saveModeratorPassword(password: string) {
+    if (!inDesktopShell()) {
+      this.moderatorNote.set('Open the Airlock app to save the moderator password.');
+      return;
+    }
+    try {
+      await invoke('set_moderator_password', { password });
+      this.moderatorNote.set('Moderator password saved in the OS keychain.');
+      this.error.set(null);
+    } catch (e) {
+      this.moderatorNote.set(String(e));
+    }
+  }
+
+  async refreshModeratorPassword() {
+    if (!inDesktopShell()) return;
+    try {
+      const saved = await invoke<boolean>('moderator_password_saved');
+      if (saved) this.moderatorNote.set('A moderator password is saved in the OS keychain.');
+    } catch {
+      /* The note stays on the default sentence. */
+    }
+  }
+
+  async saveObsPassword(password: string) {
+    if (!inDesktopShell()) {
+      this.obsNote.set('Open the Airlock app to save the OBS WebSocket password.');
+      return;
+    }
+    try {
+      await invoke('set_obs_password', { password });
+      this.obsPasswordSaved.set(true);
+      this.obsNote.set('OBS WebSocket password saved in the OS keychain.');
+      this.error.set(null);
+    } catch (e) {
+      this.obsNote.set(String(e));
+    }
+  }
+
+  async refreshObsSources() {
+    if (!inDesktopShell()) {
+      this.obsNote.set('Open the Airlock app to read OBS scenes.');
+      return;
+    }
+    try {
+      const listed = await invoke<{ names: string[]; targets: string[] }>('list_obs_sources');
+      this.obsSources.set(listed.names);
+      this.obsTargets.set(listed.targets);
+      this.obsPasswordSaved.set(true);
+      this.obsNote.set(
+        listed.names.length
+          ? `Will scan ${listed.targets.join(', ') || 'nothing'}.`
+          : 'OBS returned no sources.',
+      );
+      this.error.set(null);
+    } catch (e) {
+      this.obsNote.set(String(e));
+    }
   }
 
   setShortcut(which: 'veto' | 'approve' | 'dump' | 'safe', value: string) {
@@ -256,8 +351,6 @@ export class StudioService {
 
   reset() {
     this.commit(structuredClone(DEFAULT_STUDIO));
-    this.pro.set(false);
-    this.licenseNote.set('Pro is off until a license is saved.');
   }
 
   async downloadModel() {
@@ -308,7 +401,6 @@ export class StudioService {
       await this.pushToDesktop(merged);
       this.error.set(null);
       void this.refreshStreamKey();
-      void this.refreshLicense();
     } catch (e) {
       this.error.set(String(e));
     }
@@ -366,6 +458,12 @@ function loadStudio(): StudioSettings {
       shortcut_safe: parsed.shortcut_safe || base.shortcut_safe,
       license_key: parsed.license_key ?? '',
       telemetry_opt_in: parsed.telemetry_opt_in ?? false,
+      start_with_obs: parsed.start_with_obs ?? true,
+      scan_always: parsed.scan_always ?? [],
+      scan_never: parsed.scan_never ?? [],
+      moderator_enabled: parsed.moderator_enabled ?? false,
+      moderator_port: parsed.moderator_port && parsed.moderator_port > 0 ? parsed.moderator_port : 1940,
+      destinations: (parsed.destinations ?? []).filter((id) => id === 'twitch' || id === 'youtube' || id === 'kick'),
       policy: {
         ...base.policy,
         ...parsed.policy,

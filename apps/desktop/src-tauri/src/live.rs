@@ -1,8 +1,9 @@
 //! Go live: listen for one local publisher, push its audio through the delay,
-//! recognize speech on a 16 kHz copy, and ask the context judge when a Pro
-//! license is saved. Cloud speech is used only when the streamer opted in, a
-//! Pro license allows it, and a Deepgram key is in the keychain. Otherwise
-//! Parakeet runs when its model folder is on disk, and Whisper is the fallback.
+//! recognize speech on a 16 kHz copy, and ask the context judge. Video frames
+//! are sampled on the same clock and a secret is pixelated before it airs.
+//! Cloud speech is used only when the streamer opted in and a Deepgram key is
+//! in the keychain. Otherwise Parakeet runs when its model folder is on disk,
+//! and Whisper is the fallback.
 
 use crate::EVENT_CHANNEL;
 use airlock_asr::audio::{downmix_to_mono, has_speech_energy, resample_linear};
@@ -10,13 +11,18 @@ use airlock_asr::{
     ASR_SAMPLE_RATE, DeepgramConfig, DeepgramRecognizer, ParakeetRecognizer, SpeechRecognizer,
     WhisperConfig, WhisperRecognizer,
 };
-use airlock_core::{Dur, Platform, StallFallback, Ts};
+use airlock_core::{Action, Dur, Platform, Rect, Span, StallFallback, Target, Ts};
 use airlock_llm::{AnthropicJudge, ContextJudge, JudgeRequest, OllamaJudge};
 use airlock_media::{
-    AudioHold, DelayedForward, ForwardStep, INGEST_PORT, VideoHold, key_account, platform_name,
-    publish_base, secure_publish_url, serve_capture,
+    AudioHold, DelayedForward, FrameCover, INGEST_PORT, LiveFrame, PublishTarget, VideoCover,
+    VideoHold, cover_frame, key_account, platform_name, publish_base, secure_publish_url,
+    serve_capture, serve_capture_frames,
 };
-use airlock_pipeline::{Feature, JudgeScheduler, JudgeWindow, Session, UiEvent, allows};
+use airlock_pipeline::{JudgeScheduler, JudgeWindow, Session, UiEvent};
+use airlock_vision::{
+    FrameRef, FrameSampler, OllamaScene, PixelFormat, TextRecognizer, WindowsOcr, bgra_png,
+    downscale_bgra, scene_deadline,
+};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -33,16 +39,35 @@ pub fn start(
     let fallback = config.policy.stall_fallback;
     let delay = config.policy.delay();
     let platform = settings.platform;
-    let judge_on = allows(&settings.license_key, Feature::ContextJudge);
-    let cloud = settings.cloud_judge_consent && allows(&settings.license_key, Feature::CloudJudge);
-    let speech_key =
-        if settings.cloud_stt_consent && allows(&settings.license_key, Feature::CloudSpeech) {
-            crate::keys::load_speech_key().ok()
-        } else {
-            None
-        };
-    let rules = settings.active_rules().to_vec();
-    let forward_url = publish_target(platform);
+    let judge_on = true;
+    let screen_on = true;
+    let cloud = settings.cloud_judge_consent;
+    let speech_key = if settings.cloud_stt_consent {
+        crate::keys::load_speech_key().ok()
+    } else {
+        None
+    };
+    let selected = settings.publish_platforms();
+    let limited = settings.saved_destinations().len() > selected.len();
+    let mut ready_names = Vec::new();
+    let mut missing_names = Vec::new();
+    let mut targets = Vec::new();
+    for destination in &selected {
+        let name = platform_name(*destination).to_string();
+        match publish_target(*destination) {
+            Some(url) => {
+                targets.push(PublishTarget {
+                    url,
+                    name: name.clone(),
+                });
+                ready_names.push(name);
+            }
+            None => missing_names.push(name),
+        }
+    }
+    let primary = selected.first().copied().unwrap_or(platform);
+    let also: Vec<Platform> = selected.iter().copied().skip(1).collect();
+    let rules = settings.rules_for(&selected);
     let dir = app.path().app_data_dir().map_err(|err| err.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
     std::thread::spawn(move || {
@@ -78,8 +103,11 @@ pub fn start(
                     Arc::clone(&slot),
                     Arc::clone(&generation),
                     mine,
-                    platform,
-                    rules,
+                    JudgeTarget {
+                        platform: primary,
+                        also,
+                        rules,
+                    },
                     cloud,
                 )
             });
@@ -103,27 +131,22 @@ pub fn start(
             );
             None
         };
-        let forwarding = forward_url.is_some();
+        let forwarding = !targets.is_empty();
         let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected: false });
         let _ = app.emit(
             EVENT_CHANNEL,
             &UiEvent::Egress {
                 active: false,
-                detail: if forwarding {
-                    format!("Waiting to forward to {}.", platform_name(platform))
-                } else {
-                    format!(
-                        "Save a stream key in Settings. This broadcast stays on this PC and is not sent to {}.",
-                        platform_name(platform)
-                    )
-                },
+                detail: waiting_detail(&ready_names, &missing_names, limited, platform),
             },
         );
         let delayed = Arc::new(Mutex::new(Vec::<f32>::new()));
+        let covers = Arc::new(Mutex::new(Vec::<FrameCover>::new()));
         let media = Arc::new(Mutex::new(LiveMedia {
             audio: AudioHold::new(delay),
             video: VideoHold::new(delay),
-            forward: DelayedForward::new(forward_url),
+            forward: DelayedForward::new(targets),
+            cover: VideoCover::default(),
         }));
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
@@ -140,78 +163,105 @@ pub fn start(
         let media_pcm = Arc::clone(&media);
         let delayed_pcm = Arc::clone(&delayed);
         let media_video = Arc::clone(&media);
-        let _ = serve_capture(
-            INGEST_PORT,
-            &dir,
-            &stop,
-            {
-                let app = app.clone();
-                move |connected| {
-                    let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected });
-                }
-            },
-            move |packet| {
-                if let Ok(mut media) = media_video.lock() {
-                    media.video.push(packet);
-                }
-            },
-            move |pcm| {
-                if generation.load(Ordering::SeqCst) != mine {
-                    return;
-                }
-                if let Some(tx) = &speech_out {
-                    let mono = downmix_to_mono(&pcm.samples, pcm.channels.max(1));
-                    let speech = resample_linear(&mono, pcm.sample_rate, ASR_SAMPLE_RATE);
-                    let _ = tx.send((pcm.start, speech));
-                }
-                let end = pcm.start
-                    + Dur::from_secs_f64(pcm.frames() as f64 / pcm.sample_rate.max(1) as f64);
-                let energetic = has_speech_energy(&pcm.samples);
-                let mut guard = match slot_pcm.lock() {
-                    Ok(guard) => guard,
-                    Err(_) => return,
-                };
-                let Some(session) = guard.as_mut() else {
-                    return;
-                };
-                let Ok(mut media) = media_pcm.lock() else {
-                    return;
-                };
-                let _ = media.audio.push(pcm);
-                session.on_live_time(end);
-                session.note_audio_energy(energetic);
-                let redactions = session.engine().all().to_vec();
-                let samples = media.audio.release(end, &redactions);
-                let pictures = media.video.release(end);
-                if let Ok(mut delayed) = delayed_pcm.lock() {
-                    delayed.extend_from_slice(&samples);
-                }
-                match media.forward.write(&pictures, &samples) {
-                    Ok(ForwardStep::Started) => {
-                        let _ = app_pcm.emit(
-                            EVENT_CHANNEL,
-                            &UiEvent::Egress {
-                                active: true,
-                                detail: format!("Forwarding to {}.", platform_name(platform)),
-                            },
-                        );
-                    }
-                    Err(detail) => {
-                        let _ = app_pcm.emit(
-                            EVENT_CHANNEL,
-                            &UiEvent::Egress {
-                                active: false,
-                                detail,
-                            },
-                        );
-                    }
-                    Ok(_) => {}
-                }
-                for event in session.drain_events() {
-                    let _ = app_pcm.emit(EVENT_CHANNEL, &event);
-                }
-            },
-        );
+        let covers_video = Arc::clone(&covers);
+        let screen_tx = if screen_on {
+            let (tx, rx) = std::sync::mpsc::sync_channel(1);
+            let app_screen = app.clone();
+            let slot_screen = Arc::clone(&slot);
+            let generation_screen = Arc::clone(&generation);
+            let covers_screen = Arc::clone(&covers);
+            std::thread::spawn(move || {
+                watch_screen(
+                    app_screen,
+                    slot_screen,
+                    generation_screen,
+                    mine,
+                    delay,
+                    covers_screen,
+                    rx,
+                );
+            });
+            Some(tx)
+        } else {
+            None
+        };
+        let on_connection = {
+            let app = app.clone();
+            move |connected| {
+                let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected });
+            }
+        };
+        let on_video = move |packet| {
+            if let Ok(mut media) = media_video.lock() {
+                media.video.push(packet);
+            }
+        };
+        let on_pcm = move |pcm: airlock_media::Pcm| {
+            if generation.load(Ordering::SeqCst) != mine {
+                return;
+            }
+            if let Some(tx) = &speech_out {
+                let mono = downmix_to_mono(&pcm.samples, pcm.channels.max(1));
+                let speech = resample_linear(&mono, pcm.sample_rate, ASR_SAMPLE_RATE);
+                let _ = tx.send((pcm.start, speech));
+            }
+            let end =
+                pcm.start + Dur::from_secs_f64(pcm.frames() as f64 / pcm.sample_rate.max(1) as f64);
+            let energetic = has_speech_energy(&pcm.samples);
+            let mut guard = match slot_pcm.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let Some(session) = guard.as_mut() else {
+                return;
+            };
+            let Ok(mut media) = media_pcm.lock() else {
+                return;
+            };
+            let _ = media.audio.push(pcm);
+            session.on_live_time(end);
+            session.note_audio_energy(energetic);
+            let redactions = session.engine().all().to_vec();
+            let samples = media.audio.release(end, &redactions);
+            let pictures = media.video.release(end);
+            let ready = covers_video
+                .lock()
+                .map(|guard| guard.clone())
+                .unwrap_or_default();
+            let pictures = media.cover.apply(pictures, &redactions, &ready);
+            if let Ok(mut delayed) = delayed_pcm.lock() {
+                delayed.extend_from_slice(&samples);
+            }
+            let report = media.forward.write(&pictures, &samples);
+            if !report.started.is_empty() || !report.failed.is_empty() {
+                let connected = media.forward.connected_names();
+                let _ = app_pcm.emit(
+                    EVENT_CHANNEL,
+                    &UiEvent::Egress {
+                        active: !connected.is_empty(),
+                        detail: forward_detail(&connected, &report.failed),
+                    },
+                );
+            }
+            for event in session.drain_events() {
+                let _ = app_pcm.emit(EVENT_CHANNEL, &event);
+            }
+        };
+        let _ = if let Some(tx) = screen_tx {
+            serve_capture_frames(
+                INGEST_PORT,
+                &dir,
+                &stop,
+                on_connection,
+                on_video,
+                on_pcm,
+                move |frame| {
+                    let _ = tx.try_send(frame);
+                },
+            )
+        } else {
+            serve_capture(INGEST_PORT, &dir, &stop, on_connection, on_video, on_pcm)
+        };
         drop(speech_tx);
         let delayed = delayed
             .lock()
@@ -225,7 +275,10 @@ pub fn start(
                 EVENT_CHANNEL,
                 &UiEvent::Egress {
                     active: false,
-                    detail: format!("Forwarding to {} stopped.", platform_name(platform)),
+                    detail: format!(
+                        "Forwarding to {} stopped.",
+                        destination_sentence(&ready_names)
+                    ),
                 },
             );
         }
@@ -237,6 +290,7 @@ struct LiveMedia {
     audio: AudioHold,
     video: VideoHold,
     forward: DelayedForward,
+    cover: VideoCover,
 }
 
 enum SpeechEngine {
@@ -461,18 +515,28 @@ impl LiveJudge {
     }
 }
 
+struct JudgeTarget {
+    platform: Platform,
+    also: Vec<Platform>,
+    rules: Vec<String>,
+}
+
 fn spawn_judge(
     app: AppHandle,
     slot: Arc<Mutex<Option<Session>>>,
     generation: Arc<AtomicU64>,
     mine: u64,
-    platform: Platform,
-    rules: Vec<String>,
+    target: JudgeTarget,
     cloud: bool,
 ) -> JudgeHook {
     let (tx, rx) = std::sync::mpsc::channel();
     let sched = Arc::new(Mutex::new(JudgeScheduler::default()));
     let sched_loop = Arc::clone(&sched);
+    let JudgeTarget {
+        platform,
+        also,
+        rules,
+    } = target;
     std::thread::spawn(move || {
         judge_loop(
             JudgeLoop {
@@ -481,6 +545,7 @@ fn spawn_judge(
                 generation,
                 mine,
                 platform,
+                also,
                 rules,
                 cloud,
                 sched: sched_loop,
@@ -497,6 +562,7 @@ struct JudgeLoop {
     generation: Arc<AtomicU64>,
     mine: u64,
     platform: Platform,
+    also: Vec<Platform>,
     rules: Vec<String>,
     cloud: bool,
     sched: Arc<Mutex<JudgeScheduler>>,
@@ -509,6 +575,7 @@ fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
         generation,
         mine,
         platform,
+        also,
         rules,
         cloud,
         sched,
@@ -532,6 +599,7 @@ fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
             words: &job.window.words,
             focus_start: job.window.focus_start,
             platform,
+            also: &also,
             delay: job.delay,
             streamer_rules: &rules,
         };
@@ -560,6 +628,65 @@ fn judge_loop(ctx: JudgeLoop, rx: std::sync::mpsc::Receiver<JudgeJob>) {
     }
 }
 
+fn waiting_detail(
+    ready: &[String],
+    missing: &[String],
+    limited: bool,
+    fallback: Platform,
+) -> String {
+    if ready.is_empty() {
+        let who = if missing.is_empty() {
+            platform_name(fallback).to_string()
+        } else {
+            destination_sentence(missing)
+        };
+        return format!(
+            "Save a stream key in Settings. This broadcast stays on this PC and is not sent to {who}."
+        );
+    }
+    let mut text = format!("Waiting to forward to {}.", destination_sentence(ready));
+    if !missing.is_empty() {
+        let verb = if missing.len() == 1 { "has" } else { "have" };
+        text.push_str(&format!(
+            " {} {verb} no stream key saved.",
+            destination_sentence(missing)
+        ));
+    }
+    if limited {
+        text.push_str(" A second destination needs Pro.");
+    }
+    text
+}
+
+fn forward_detail(connected: &[String], failed: &[String]) -> String {
+    if connected.is_empty() {
+        if failed.is_empty() {
+            "Forwarding stopped.".into()
+        } else {
+            failed.join(" ")
+        }
+    } else {
+        let mut text = format!("Forwarding to {}.", destination_sentence(connected));
+        if !failed.is_empty() {
+            text.push(' ');
+            text.push_str(&failed.join(" "));
+        }
+        text
+    }
+}
+
+fn destination_sentence(names: &[String]) -> String {
+    match names.len() {
+        0 => "the platform".into(),
+        1 => names[0].clone(),
+        2 => format!("{} and {}", names[0], names[1]),
+        _ => {
+            let last = names.last().map(String::as_str).unwrap_or("the platform");
+            format!("{}, and {last}", names[..names.len() - 1].join(", "))
+        }
+    }
+}
+
 fn publish_target(platform: Platform) -> Option<String> {
     let base = publish_base(platform)?;
     let key = crate::keys::load_stream_key(key_account(platform)).ok()?;
@@ -568,6 +695,241 @@ fn publish_target(platform: Platform) -> Option<String> {
         return None;
     }
     Some(secure_publish_url(base, key))
+}
+
+struct KeptFrame {
+    ts: Ts,
+    width: u32,
+    height: u32,
+    bgra: Vec<u8>,
+    signed: Vec<u64>,
+}
+
+fn watch_screen(
+    app: AppHandle,
+    slot: Arc<Mutex<Option<Session>>>,
+    generation: Arc<AtomicU64>,
+    mine: u64,
+    delay: Dur,
+    covers: Arc<Mutex<Vec<FrameCover>>>,
+    rx: std::sync::mpsc::Receiver<LiveFrame>,
+) {
+    let mut sampler = FrameSampler::new(4.0);
+    let mut ocr = WindowsOcr;
+    let mut kept = Vec::<KeptFrame>::new();
+    let scene_busy = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    loop {
+        if generation.load(Ordering::SeqCst) != mine {
+            break;
+        }
+        match rx.recv_timeout(std::time::Duration::from_millis(200)) {
+            Ok(frame) => {
+                if let Some(span) = sampler.offer(frame.ts) {
+                    let view = FrameRef {
+                        ts: frame.ts,
+                        width: frame.width,
+                        height: frame.height,
+                        stride: frame.width.saturating_mul(4),
+                        format: PixelFormat::Bgra8,
+                        data: &frame.bgra,
+                    };
+                    let boxes = downscale_bgra(&view, 960)
+                        .ok()
+                        .and_then(|sampled| {
+                            let small = FrameRef {
+                                ts: frame.ts,
+                                width: sampled.width,
+                                height: sampled.height,
+                                stride: sampled.width.saturating_mul(4),
+                                format: PixelFormat::Bgra8,
+                                data: &sampled.data,
+                            };
+                            ocr.recognize(&small).ok()
+                        })
+                        .unwrap_or_default();
+                    if let Ok(mut guard) = slot.lock()
+                        && let Some(session) = guard.as_mut()
+                    {
+                        session.on_screen_text(&boxes, span);
+                        for event in session.drain_events() {
+                            let _ = app.emit(EVENT_CHANNEL, &event);
+                        }
+                    }
+                    kept.push(KeptFrame {
+                        ts: frame.ts,
+                        width: frame.width,
+                        height: frame.height,
+                        bgra: frame.bgra.clone(),
+                        signed: Vec::new(),
+                    });
+                    offer_scene(
+                        &ScreenHook {
+                            app: app.clone(),
+                            slot: Arc::clone(&slot),
+                            generation: Arc::clone(&generation),
+                            mine,
+                            delay,
+                        },
+                        &scene_busy,
+                        &frame,
+                        span,
+                    );
+                }
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+        refresh_covers(&slot, &mut kept, &covers, delay);
+        if kept.len() > 48 {
+            let drop_n = kept.len() - 48;
+            kept.drain(..drop_n);
+        }
+    }
+}
+
+struct ScreenHook {
+    app: AppHandle,
+    slot: Arc<Mutex<Option<Session>>>,
+    generation: Arc<AtomicU64>,
+    mine: u64,
+    delay: Dur,
+}
+
+fn offer_scene(
+    hook: &ScreenHook,
+    busy: &Arc<std::sync::atomic::AtomicBool>,
+    frame: &LiveFrame,
+    span: Span,
+) {
+    if busy
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+        .is_err()
+    {
+        return;
+    }
+    let Ok(png) = bgra_png(frame.width, frame.height, &frame.bgra) else {
+        busy.store(false, Ordering::Release);
+        return;
+    };
+    let app = hook.app.clone();
+    let slot = Arc::clone(&hook.slot);
+    let generation = Arc::clone(&hook.generation);
+    let mine = hook.mine;
+    let delay = hook.delay;
+    let busy = Arc::clone(busy);
+    std::thread::spawn(move || {
+        let finding = OllamaScene::default().classify(&png, scene_deadline(delay));
+        if generation.load(Ordering::SeqCst) == mine
+            && let Ok(Some(finding)) = finding
+            && let Ok(mut guard) = slot.lock()
+            && let Some(session) = guard.as_mut()
+        {
+            session.on_scene(
+                span,
+                finding.region,
+                finding.confidence,
+                finding.label.reason(),
+            );
+            for event in session.drain_events() {
+                let _ = app.emit(EVENT_CHANNEL, &event);
+            }
+        }
+        busy.store(false, Ordering::Release);
+    });
+}
+
+fn refresh_covers(
+    slot: &Arc<Mutex<Option<Session>>>,
+    kept: &mut [KeptFrame],
+    covers: &Arc<Mutex<Vec<FrameCover>>>,
+    delay: Dur,
+) {
+    let Ok(guard) = slot.lock() else {
+        return;
+    };
+    let Some(session) = guard.as_ref() else {
+        return;
+    };
+    let redactions = session.engine().all().to_vec();
+    drop(guard);
+    let mut fresh = Vec::new();
+    for frame in kept.iter_mut() {
+        let ids = matching_ids(&redactions, frame.ts);
+        if ids.is_empty() || ids == frame.signed {
+            continue;
+        }
+        let (regions, blackouts) = painted_regions(&redactions, frame.ts);
+        let span = redactions
+            .iter()
+            .filter(|redaction| ids.contains(&redaction.id))
+            .fold(Span::new(frame.ts, frame.ts), |span, redaction| {
+                span.union(&redaction.span)
+            });
+        frame.signed = ids;
+        if let Ok(cover) = cover_frame(
+            &frame.bgra,
+            frame.width,
+            frame.height,
+            &regions,
+            &blackouts,
+            span,
+        ) {
+            fresh.push(cover);
+        }
+    }
+    let Some(newest) = kept.iter().map(|frame| frame.ts.0).max() else {
+        return;
+    };
+    let keep_after = newest.saturating_sub(delay.0.saturating_add(2_000_000));
+    if let Ok(mut covers) = covers.lock() {
+        for cover in fresh {
+            if let Some(found) = covers.iter_mut().find(|item| item.span == cover.span) {
+                *found = cover;
+            } else {
+                covers.push(cover);
+            }
+        }
+        covers.retain(|cover| cover.span.end.0 >= keep_after);
+    }
+}
+
+fn matching_ids(redactions: &[airlock_core::Redaction], ts: Ts) -> Vec<u64> {
+    let mut ids: Vec<u64> = redactions
+        .iter()
+        .filter(|redaction| visual_hit(redaction, ts))
+        .map(|redaction| redaction.id)
+        .collect();
+    ids.sort_unstable();
+    ids
+}
+
+fn painted_regions(redactions: &[airlock_core::Redaction], ts: Ts) -> (Vec<Rect>, Vec<Rect>) {
+    let mut regions = Vec::new();
+    let mut blackouts = Vec::new();
+    for redaction in redactions
+        .iter()
+        .filter(|redaction| visual_hit(redaction, ts))
+    {
+        let Target::Video { region } = redaction.target else {
+            continue;
+        };
+        if redaction.action == Action::Blackout {
+            blackouts.push(region);
+        } else {
+            regions.push(region);
+        }
+    }
+    (regions, blackouts)
+}
+
+fn visual_hit(redaction: &airlock_core::Redaction, ts: Ts) -> bool {
+    redaction.is_active()
+        && !redaction.is_audio()
+        && redaction.span.contains(ts)
+        && matches!(
+            redaction.action,
+            Action::Blur | Action::Pixelate | Action::Blackout
+        )
 }
 
 fn write_wav(path: &Path, samples: &[f32]) -> std::io::Result<()> {

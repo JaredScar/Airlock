@@ -11,7 +11,12 @@ winocr = ["dep:windows"]
 
 [dependencies]
 airlock-core.workspace = true
+base64 = "0.22"
+png = "0.17"
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+ureq = { version = "2.12", features = ["json"] }
 windows = { version = "0.61", optional = true, features = [
     "Foundation",
     "Foundation_Collections",

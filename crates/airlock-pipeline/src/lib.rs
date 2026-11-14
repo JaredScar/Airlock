@@ -12,6 +12,8 @@ pub mod eval_run;
 pub mod incident;
 pub mod judge_sched;
 pub mod license;
+pub mod moderator;
+pub mod obs_scan;
 pub mod studio;
 pub mod telemetry;
 pub mod terms;
@@ -21,7 +23,9 @@ pub mod watchdog;
 pub use eval_label::{LabeledSpan, parse_labels};
 pub use eval_run::{ClipScript, EvalReport, score_scripts};
 pub use judge_sched::JudgeScheduler;
-pub use license::{Feature, allows, issue_dev_license};
+pub use license::{Feature, allows};
+pub use moderator::{ModeratorCommand, apply_moderator, moderator_queue, serve_moderator};
+pub use obs_scan::{SourceScan, screenshot_targets, source_scan};
 pub use studio::StudioSettings;
 pub use telemetry::telemetry_report;
 pub use terms::{open_terms, random_key, seal_terms};
@@ -29,8 +33,8 @@ pub use threads::{OutputSnapshot, SessionBus, SessionInbox};
 pub use watchdog::Watchdog;
 
 use airlock_core::{
-    Action, Category, DecisionEngine, DelayRamp, Detection, Dur, Platform, Policy, Redaction,
-    RedactionId, Span, StallFallback, Target, TextBox, Ts, Word,
+    Action, Category, DecisionEngine, DelayRamp, Detection, DetectorKind, Dur, Modality, Platform,
+    Policy, Rect, Redaction, RedactionId, Span, StallFallback, Target, TextBox, Ts, Word,
 };
 use airlock_detect::{ScreenTextScanner, SpokenPiiDetector, WordlistDetector};
 use airlock_llm::JudgeRequest;
@@ -45,6 +49,8 @@ pub const DEFAULT_ALLOWLIST: &str = include_str!("../../../config/wordlists/allo
 pub struct SessionConfig {
     pub policy: Policy,
     pub platform: Platform,
+    /// Other destinations receiving the same cleaned encode.
+    pub also_platforms: Vec<Platform>,
     /// Real name, town, school, employer, family names... Local only.
     pub private_terms: Vec<String>,
     /// Extra rules passed to the context judge ("don't mention my ex by name").
@@ -63,6 +69,7 @@ impl Default for SessionConfig {
         SessionConfig {
             policy: Policy::default(),
             platform: Platform::Twitch,
+            also_platforms: Vec::new(),
             private_terms: vec![],
             streamer_rules: vec![],
             profanity_list: DEFAULT_PROFANITY.into(),
@@ -115,6 +122,12 @@ pub enum UiEvent {
     /// `detail` is safe to show. It never contains a stream key.
     Egress {
         active: bool,
+        detail: String,
+    },
+    /// A moderator on the local network can approve or veto during the delay.
+    /// `detail` is safe to show. It never contains the password.
+    Moderator {
+        listening: bool,
         detail: String,
     },
 }
@@ -194,6 +207,11 @@ impl Session {
 
     pub fn playhead(&self) -> Ts {
         self.live - (self.cfg.policy.delay() + self.extra_delay)
+    }
+
+    /// Newest ingested media time. The moderator queue uses this with the playhead.
+    pub fn live_edge(&self) -> Ts {
+        self.live
     }
 
     /// How long audio is currently held. Policy delay plus any stall extension.
@@ -357,6 +375,24 @@ impl Session {
         self.ingest_all(found);
     }
 
+    /// A local vision model saw a DM, a notification, or an explicit image that
+    /// text recognition cannot classify. The finding is a suggestion: the
+    /// streamer approves the blur. A result that arrives after the span has
+    /// aired is filed as missed, the same way a late judge result is.
+    pub fn on_scene(&mut self, span: Span, region: Rect, confidence: f32, reason: &str) {
+        let detection = Detection {
+            source: DetectorKind::VisionModel,
+            category: Category::ScreenPii,
+            modality: Modality::Video,
+            span,
+            region: Some(region),
+            confidence,
+            reason: reason.to_string(),
+            evidence: airlock_core::model::mask_evidence(reason),
+        };
+        self.ingest_all(vec![detection]);
+    }
+
     /// Builds the next context-judge request, or `None` if there are no new words.
     pub fn next_judge_window(&self) -> Option<JudgeWindow> {
         let focus_start = self
@@ -384,6 +420,7 @@ impl Session {
             words: &window.words,
             focus_start: window.focus_start,
             platform: self.cfg.platform,
+            also: &self.cfg.also_platforms,
             delay: self.hold(),
             streamer_rules: &self.cfg.streamer_rules,
         }
@@ -623,18 +660,48 @@ fn repeats_latest(word: &Word, previous: Option<&Word>) -> bool {
     let Some(previous) = previous else {
         return false;
     };
-    norm_word(&previous.text) == norm_word(&word.text)
-        && word.span.start.0 < previous.span.end.0 + 4_000_000
-        && word.span.end.0 > previous.span.start.0 - 4_000_000
+    if norm_word(&previous.text) != norm_word(&word.text) {
+        return false;
+    }
+    let gap = repeat_gap(&word.text, 4_000_000);
+    word.span.start.0 < previous.span.end.0 + gap && word.span.end.0 > previous.span.start.0 - gap
 }
 
 fn is_repeat(word: &Word, existing: &[Word]) -> bool {
     let norm = norm_word(&word.text);
+    let gap = repeat_gap(&word.text, 2_500_000);
     existing.iter().any(|old| {
         norm_word(&old.text) == norm
-            && word.span.start.0 < old.span.end.0 + 2_500_000
-            && word.span.end.0 > old.span.start.0 - 2_500_000
+            && word.span.start.0 < old.span.end.0 + gap
+            && word.span.end.0 > old.span.start.0 - gap
     })
+}
+
+/// A spoken digit said again is a new word. Other repeats inside `normal` are one utterance.
+fn repeat_gap(text: &str, normal: i64) -> i64 {
+    if is_count_word(&norm_word(text)) {
+        80_000
+    } else {
+        normal
+    }
+}
+
+fn is_count_word(norm: &str) -> bool {
+    matches!(
+        norm,
+        "zero"
+            | "oh"
+            | "one"
+            | "two"
+            | "three"
+            | "four"
+            | "five"
+            | "six"
+            | "seven"
+            | "eight"
+            | "nine"
+            | "ten"
+    )
 }
 
 fn norm_word(text: &str) -> String {

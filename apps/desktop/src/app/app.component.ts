@@ -4,12 +4,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { AirlockService, IncidentFormat, inDesktopShell } from './airlock.service';
 import { CATEGORY_LABEL, Redaction, isActive, transcriptStates } from './airlock.types';
+import { ModeratorComponent } from './moderator.component';
 import { SettingsComponent } from './settings.component';
+import { WizardComponent } from './wizard.component';
 import { StudioService } from './studio.service';
 
 @Component({
   selector: 'app-root',
-  imports: [DecimalPipe, SettingsComponent],
+  imports: [DecimalPipe, SettingsComponent, WizardComponent, ModeratorComponent],
   templateUrl: './app.component.html',
   host: {
     '[class.compact]': 'compact()',
@@ -21,7 +23,7 @@ export class AppComponent {
   readonly label = CATEGORY_LABEL;
   readonly isActive = isActive;
   readonly desktop = inDesktopShell();
-  readonly page = signal<'live' | 'settings'>('live');
+  readonly page = signal<'live' | 'settings' | 'setup' | 'moderator'>(initialPage());
   readonly compact = signal(false);
   readonly light = signal(false);
   readonly safe = signal(false);
@@ -36,11 +38,7 @@ export class AppComponent {
   readonly demoMode = signal(false);
 
   platformName(): string {
-    const id = this.studio.settings().platform;
-    if (id === 'twitch') return 'Twitch';
-    if (id === 'youtube') return 'YouTube';
-    if (id === 'kick') return 'Kick';
-    return 'Generic';
+    return this.studio.destinationLabel();
   }
 
   dump() {
@@ -200,4 +198,10 @@ export class AppComponent {
     a.click();
     URL.revokeObjectURL(url);
   }
+}
+
+function initialPage(): 'live' | 'settings' | 'setup' | 'moderator' {
+  const page = location.hash.replace('#', '');
+  if (page === 'settings' || page === 'setup' || page === 'moderator') return page;
+  return 'live';
 }

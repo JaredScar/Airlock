@@ -7,11 +7,14 @@
 mod demo;
 mod keys;
 mod live;
+mod moderator;
+mod obs;
+mod obs_ws;
 
 use airlock_core::{Platform, RedactionId};
 use airlock_media::key_account;
-use airlock_pipeline::{Feature, Session, StudioSettings, UiEvent, allows, incident};
-use std::sync::atomic::{AtomicU64, Ordering};
+use airlock_pipeline::{Session, StudioSettings, UiEvent, incident};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -24,6 +27,8 @@ pub struct AppState {
     pub studio: Arc<Mutex<StudioSettings>>,
     /// Bumped by Go live, Stop, and Run demo. A worker exits when this changes.
     pub generation: Arc<AtomicU64>,
+    /// True while a demo or a live listener is the current session.
+    pub listening: Arc<AtomicBool>,
 }
 
 #[tauri::command]
@@ -65,13 +70,83 @@ fn set_studio_settings(
 }
 
 #[tauri::command]
-fn license_is_pro(key: String) -> bool {
-    allows(&key, Feature::ContextJudge)
+fn set_cloud_key(key: String) -> Result<(), String> {
+    keys::store_cloud_key(&key)
 }
 
 #[tauri::command]
-fn set_cloud_key(key: String) -> Result<(), String> {
-    keys::store_cloud_key(&key)
+fn set_obs_password(password: String) -> Result<(), String> {
+    keys::store_obs_password(&password)
+}
+
+#[tauri::command]
+fn set_moderator_password(password: String) -> Result<(), String> {
+    keys::store_moderator_password(&password)
+}
+
+#[tauri::command]
+fn moderator_password_saved() -> Result<bool, String> {
+    keys::moderator_password_is_saved()
+}
+
+#[tauri::command]
+fn obs_password_saved() -> Result<bool, String> {
+    keys::obs_password_is_saved()
+}
+
+#[derive(serde::Serialize)]
+struct ObsSourceList {
+    names: Vec<String>,
+    targets: Vec<String>,
+}
+
+#[tauri::command]
+fn list_obs_sources(state: State<'_, AppState>) -> Result<ObsSourceList, String> {
+    let password = keys::load_obs_password()?;
+    let mut remote = obs_ws::ObsRemote::connect(obs_ws::DEFAULT_URL, &password)?;
+    let names = remote.list_sources()?;
+    let settings = state
+        .studio
+        .lock()
+        .map_err(|_| "settings lock poisoned".to_string())?;
+    let targets =
+        airlock_pipeline::screenshot_targets(&names, &settings.scan_always, &settings.scan_never);
+    Ok(ObsSourceList { names, targets })
+}
+
+#[derive(serde::Serialize)]
+struct MachineSetup {
+    gpu_mb: Option<u64>,
+    model: String,
+}
+
+#[tauri::command]
+fn machine_setup(app: AppHandle) -> MachineSetup {
+    let gpu_mb = detect_vram_mb();
+    let whisper = airlock_asr::runtime_speech_model(gpu_mb)
+        .file_name()
+        .to_string();
+    let parakeet = app.path().app_data_dir().ok().is_some_and(|dir| {
+        airlock_asr::parakeet_ready(&dir.join("models").join(airlock_asr::PARAKEET_DIR))
+    });
+    let model = if cfg!(feature = "cuda") && parakeet {
+        airlock_asr::PARAKEET_DIR.to_string()
+    } else {
+        whisper
+    };
+    MachineSetup { gpu_mb, model }
+}
+
+#[tauri::command]
+fn configure_obs_ingest() -> Result<(), String> {
+    let password = keys::load_obs_password()?;
+    let mut remote = obs_ws::ObsRemote::connect(obs_ws::DEFAULT_URL, &password)?;
+    let server = format!("rtmp://127.0.0.1:{}/live", airlock_media::INGEST_PORT);
+    remote.set_custom_ingest(&server, airlock_media::INGEST_KEY)?;
+    if !remote.custom_ingest_matches(&server, airlock_media::INGEST_KEY)? {
+        return Err("OBS did not keep the local ingest".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -130,17 +205,30 @@ fn start_demo(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), S
         .clone();
     let mine = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
     demo::start(
-        app,
+        app.clone(),
         state.session.clone(),
-        settings,
+        settings.clone(),
         state.generation.clone(),
         mine,
     )
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+    moderator::start(
+        &app,
+        state.session.clone(),
+        state.generation.clone(),
+        mine,
+        &settings,
+    );
+    state.listening.store(true, Ordering::SeqCst);
+    Ok(())
 }
 
 #[tauri::command]
 fn start_live(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    begin_live(&app, &state)
+}
+
+fn begin_live(app: &AppHandle, state: &AppState) -> Result<(), String> {
     let ffmpeg_ok = std::process::Command::new("ffmpeg")
         .arg("-version")
         .status()
@@ -157,18 +245,35 @@ fn start_live(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), S
     settings.session_config()?;
     let mine = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
     live::start(
-        app,
+        app.clone(),
         state.session.clone(),
-        settings,
+        settings.clone(),
         state.generation.clone(),
         mine,
-    )
+    )?;
+    moderator::start(
+        app,
+        state.session.clone(),
+        state.generation.clone(),
+        mine,
+        &settings,
+    );
+    state.listening.store(true, Ordering::SeqCst);
+    Ok(())
 }
 
 #[tauri::command]
 fn stop_live(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    state.listening.store(false, Ordering::SeqCst);
     state.generation.fetch_add(1, Ordering::SeqCst);
     let _ = app.emit(EVENT_CHANNEL, &UiEvent::Ingest { connected: false });
+    let _ = app.emit(
+        EVENT_CHANNEL,
+        &UiEvent::Moderator {
+            listening: false,
+            detail: String::new(),
+        },
+    );
     Ok(())
 }
 
@@ -280,6 +385,39 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Polls for OBS. The first time `obs64.exe` is running, and the setting is on,
+/// this opens the same listener as Go live. A session that is already listening
+/// is left alone. Closing the window hides it; Quit on the tray exits.
+fn watch_obs(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut was_running = false;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let running = obs::obs_is_running();
+            let launched = obs::obs_just_launched(was_running, running);
+            was_running = running;
+            if !launched {
+                continue;
+            }
+            let state = app.state::<AppState>();
+            let enabled = state
+                .studio
+                .lock()
+                .map(|settings| settings.start_with_obs)
+                .unwrap_or(false);
+            if !enabled || state.listening.load(Ordering::SeqCst) {
+                continue;
+            }
+            if begin_live(&app, &state).is_ok() {
+                let _ = app.emit("airlock://session-started", ());
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            }
+        }
+    });
+}
+
 #[derive(Clone, serde::Serialize)]
 struct ModelProgress {
     received: u64,
@@ -369,13 +507,26 @@ pub fn run() {
                 .unwrap_or_default();
             let _ = register_shortcuts(app.handle(), &settings);
             install_tray(app)?;
+            watch_obs(app.handle().clone());
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_studio_settings,
             set_studio_settings,
-            license_is_pro,
             set_cloud_key,
+            set_obs_password,
+            obs_password_saved,
+            set_moderator_password,
+            moderator_password_saved,
+            list_obs_sources,
+            machine_setup,
+            configure_obs_ingest,
             set_speech_key,
             set_stream_key,
             has_stream_key,
