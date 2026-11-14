@@ -1,10 +1,9 @@
 //! Go live: listen for one local publisher, push its audio through the delay,
-//! recognize speech on a 16 kHz copy, and ask the context judge when a Pro
-//! license is saved. When that license allows on-screen scanning, video frames
+//! recognize speech on a 16 kHz copy, and ask the context judge. Video frames
 //! are sampled on the same clock and a secret is pixelated before it airs.
-//! Cloud speech is used only when the streamer opted in, a Pro license allows
-//! it, and a Deepgram key is in the keychain. Otherwise Parakeet runs when its
-//! model folder is on disk, and Whisper is the fallback.
+//! Cloud speech is used only when the streamer opted in and a Deepgram key is
+//! in the keychain. Otherwise Parakeet runs when its model folder is on disk,
+//! and Whisper is the fallback.
 
 use crate::EVENT_CHANNEL;
 use airlock_asr::audio::{downmix_to_mono, has_speech_energy, resample_linear};
@@ -19,7 +18,7 @@ use airlock_media::{
     VideoHold, cover_frame, key_account, platform_name, publish_base, secure_publish_url,
     serve_capture, serve_capture_frames,
 };
-use airlock_pipeline::{Feature, JudgeScheduler, JudgeWindow, Session, UiEvent, allows};
+use airlock_pipeline::{JudgeScheduler, JudgeWindow, Session, UiEvent};
 use airlock_vision::{
     FrameRef, FrameSampler, OllamaScene, PixelFormat, TextRecognizer, WindowsOcr, bgra_png,
     downscale_bgra, scene_deadline,
@@ -40,15 +39,14 @@ pub fn start(
     let fallback = config.policy.stall_fallback;
     let delay = config.policy.delay();
     let platform = settings.platform;
-    let judge_on = allows(&settings.license_key, Feature::ContextJudge);
-    let screen_on = allows(&settings.license_key, Feature::ScreenScan);
-    let cloud = settings.cloud_judge_consent && allows(&settings.license_key, Feature::CloudJudge);
-    let speech_key =
-        if settings.cloud_stt_consent && allows(&settings.license_key, Feature::CloudSpeech) {
-            crate::keys::load_speech_key().ok()
-        } else {
-            None
-        };
+    let judge_on = true;
+    let screen_on = true;
+    let cloud = settings.cloud_judge_consent;
+    let speech_key = if settings.cloud_stt_consent {
+        crate::keys::load_speech_key().ok()
+    } else {
+        None
+    };
     let selected = settings.publish_platforms();
     let limited = settings.saved_destinations().len() > selected.len();
     let mut ready_names = Vec::new();

@@ -23,7 +23,7 @@ export class AppComponent {
   readonly label = CATEGORY_LABEL;
   readonly isActive = isActive;
   readonly desktop = inDesktopShell();
-  readonly page = signal<'live' | 'settings' | 'setup' | 'moderator'>('live');
+  readonly page = signal<'live' | 'settings' | 'setup' | 'moderator'>(initialPage());
   readonly compact = signal(false);
   readonly light = signal(false);
   readonly safe = signal(false);
@@ -198,4 +198,10 @@ export class AppComponent {
     a.click();
     URL.revokeObjectURL(url);
   }
+}
+
+function initialPage(): 'live' | 'settings' | 'setup' | 'moderator' {
+  const page = location.hash.replace('#', '');
+  if (page === 'settings' || page === 'setup' || page === 'moderator') return page;
+  return 'live';
 }

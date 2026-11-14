@@ -2,7 +2,7 @@
   <section class="panel">
     <header class="panel-head">
       <h2>Platform</h2>
-      <p class="hint">Check every destination for this broadcast. Edit shows that platform's key and rules. Without Pro, checking a platform switches the one destination. With Pro, each checked platform gets the same cleaned stream.</p>
+      <p class="hint">Check every destination for this broadcast. Edit shows that platform's key and rules. Each checked platform gets the same cleaned stream.</p>
     </header>
     <div class="scroll settings-body">
       <div class="platforms" role="group" aria-label="Destinations">
@@ -231,7 +231,7 @@
       <ul class="data-statement">
         <li>Word lists, spoken checks, and on-screen text recognition stay on this PC.</li>
         <li>Private terms stay on this PC. The desktop app seals them and keeps the key in the OS keychain. This preview has no keychain, so terms stay in this browser's profile.</li>
-        <li>Speech recognition stays on this PC unless "Audio may be sent to Deepgram for speech recognition" is checked, a Pro license is saved, and a Deepgram key is in the OS keychain.</li>
+        <li>Speech recognition stays on this PC unless "Audio may be sent to Deepgram for speech recognition" is checked and a Deepgram key is in the OS keychain.</li>
         <li>The local judge talks to Ollama on this machine. That transcript is not sent to a cloud model.</li>
         <li>The cloud judge sends the transcript to Anthropic only if "Transcript text may leave this PC" is checked and a key is saved. Private terms are not included. The key goes to the OS keychain.</li>
         <li>A stream key stays in the OS keychain. It is not written into settings or logs. Go live sends the held picture and sound to each destination that has a key saved.</li>
@@ -264,25 +264,7 @@
         <input type="password" autocomplete="off" [value]="speechKeyDraft()" (input)="onSpeechKey($event)" placeholder="Deepgram key" aria-label="Deepgram key" />
         <button type="submit">Save speech key</button>
       </form>
-      <p class="hint">Off by default. A Pro license is required. The key stays in the OS keychain. With this off, speech stays on this PC.</p>
-    </div>
-  </section>
-
-  <section class="panel">
-    <header class="panel-head">
-      <h2>License</h2>
-      <p class="hint">Word lists, the dump button, and spoken personal info stay on without a key. The context judge, on-screen scanning, cloud speech, and the cloud judge are the Pro checks. The key is verified on this PC.</p>
-    </header>
-    <div class="scroll settings-body">
-      <form class="add" (submit)="saveLicense($event)">
-        <input name="license" [value]="licenseDraft()" (input)="onLicense($event)" [disabled]="studio.pro()" [placeholder]="studio.pro() ? 'Pro license saved' : 'Pro license'" aria-label="License key" autocomplete="off" />
-        @if (studio.pro()) {
-          <button type="button" class="ghost" (click)="resetLicense()">Reset license</button>
-        } @else {
-          <button type="submit">Save license</button>
-        }
-      </form>
-      <p class="hint">{{ studio.licenseNote() }}</p>
+      <p class="hint">Off by default. The key stays in the OS keychain. With this off, speech stays on this PC.</p>
     </div>
   </section>
 

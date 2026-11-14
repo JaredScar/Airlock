@@ -36,7 +36,7 @@ cloud_judge_consent: boolean,
  */
 cloud_stt_consent: boolean, shortcut_veto: string, shortcut_approve: string, shortcut_dump: string, shortcut_safe: string, 
 /**
- * Empty until the streamer pastes a Pro key. Checked offline.
+ * Kept so an older settings file still loads. It does not turn features on or off.
  */
 license_key: string, 
 /**

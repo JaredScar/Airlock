@@ -1,16 +1,5 @@
-//! Offline license check. Wordlist bleeps, the dump button, spoken PII, and one
-//! destination work without a key. The context judge, screen scanning, cloud
-//! providers, and a second destination need Pro.
-//!
-//! The signing key in this crate is a development key. Pricing is still an open
-//! question, so this is the check, not a store.
-
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
-
-type HmacSha256 = Hmac<Sha256>;
-
-const DEV_KEY: &[u8] = b"airlock-dev-license-key-v1!!!!!!";
+//! Feature names kept so call sites stay explicit. Every feature is on.
+//! There is no paid tier.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Feature {
@@ -20,41 +9,16 @@ pub enum Feature {
     ContextJudge,
     ScreenScan,
     CloudJudge,
-    /// Cloud speech recognition. Pro, and only after explicit consent.
+    /// Cloud speech recognition. Only after explicit consent.
     CloudSpeech,
     /// More than one destination in the same session.
     Multistream,
 }
 
-/// Signs a development Pro license. The key ships with the repo until pricing exists.
-pub fn issue_dev_license() -> String {
-    let mac = hmac(b"pro");
-    format!("pro.{mac}")
-}
-
-pub fn allows(license: &str, feature: Feature) -> bool {
-    match feature {
-        Feature::Wordlist | Feature::Dump | Feature::SpokenPii => true,
-        Feature::ContextJudge
-        | Feature::ScreenScan
-        | Feature::CloudJudge
-        | Feature::CloudSpeech
-        | Feature::Multistream => is_pro(license),
-    }
-}
-
-fn is_pro(license: &str) -> bool {
-    let Some(sig) = license.trim().strip_prefix("pro.") else {
-        return false;
-    };
-    sig.len() == 64 && sig.eq_ignore_ascii_case(&hmac(b"pro"))
-}
-
-fn hmac(payload: &[u8]) -> String {
-    let mut mac = HmacSha256::new_from_slice(DEV_KEY).expect("hmac key length");
-    mac.update(payload);
-    let bytes = mac.finalize().into_bytes();
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+/// Every feature is available. `license` is ignored so an older settings file
+/// that still has a key loads the same way as one that does not.
+pub fn allows(_license: &str, _feature: Feature) -> bool {
+    true
 }
 
 #[cfg(test)]
@@ -62,18 +26,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn free_tier_stays_on_and_pro_needs_a_key() {
-        assert!(allows("", Feature::Dump));
-        assert!(allows("", Feature::SpokenPii));
-        assert!(!allows("", Feature::ContextJudge));
-        assert!(!allows("pro.00", Feature::ScreenScan));
-        let key = issue_dev_license();
-        assert!(allows(&key, Feature::ContextJudge));
-        assert!(allows(&key, Feature::CloudJudge));
-        assert!(!allows("", Feature::CloudSpeech));
-        assert!(allows(&key, Feature::CloudSpeech));
-        assert!(!allows("", Feature::Multistream));
-        assert!(allows(&key, Feature::Multistream));
-        assert!(!key.contains("Springfield"));
+    fn every_feature_is_on_without_a_key() {
+        for feature in [
+            Feature::Wordlist,
+            Feature::Dump,
+            Feature::SpokenPii,
+            Feature::ContextJudge,
+            Feature::ScreenScan,
+            Feature::CloudJudge,
+            Feature::CloudSpeech,
+            Feature::Multistream,
+        ] {
+            assert!(allows("", feature));
+            assert!(allows("pro.00", feature));
+        }
     }
 }

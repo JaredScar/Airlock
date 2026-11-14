@@ -2,7 +2,7 @@
 
 use airlock_core::{Category, Platform, Span, Word};
 use airlock_llm::build_prompt;
-use airlock_pipeline::{StudioSettings, issue_dev_license};
+use airlock_pipeline::StudioSettings;
 
 #[test]
 fn selected_platform_rules_reach_the_judge_and_private_terms_do_not() {
@@ -40,24 +40,18 @@ fn selected_platform_rules_reach_the_judge_and_private_terms_do_not() {
 }
 
 #[test]
-fn two_destinations_share_the_prompt_and_need_pro() {
-    let mut settings = StudioSettings {
+fn two_destinations_share_the_prompt() {
+    let settings = StudioSettings {
         platform: Platform::Youtube,
         destinations: vec![Platform::Twitch, Platform::Youtube],
         rules_twitch: vec!["twitch only rule".into()],
         rules_youtube: vec!["no sponsor names".into()],
         ..StudioSettings::default()
     };
-    let free = settings.session_config().unwrap();
-    assert_eq!(free.platform, Platform::Youtube);
-    assert!(free.also_platforms.is_empty());
-    assert_eq!(free.streamer_rules, vec!["no sponsor names".to_string()]);
-
-    settings.license_key = issue_dev_license();
-    let pro = settings.session_config().unwrap();
-    assert_eq!(pro.platform, Platform::Twitch);
-    assert_eq!(pro.also_platforms, vec![Platform::Youtube]);
-    let mut session = airlock_pipeline::Session::new(pro);
+    let config = settings.session_config().unwrap();
+    assert_eq!(config.platform, Platform::Twitch);
+    assert_eq!(config.also_platforms, vec![Platform::Youtube]);
+    let mut session = airlock_pipeline::Session::new(config);
     session.on_words(vec![Word::new("hello", Span::from_millis(0, 200), 0.9)]);
     let window = session.next_judge_window().unwrap();
     let prompt = build_prompt(&session.judge_request(&window));

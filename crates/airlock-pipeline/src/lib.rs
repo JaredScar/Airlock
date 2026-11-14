@@ -23,7 +23,7 @@ pub mod watchdog;
 pub use eval_label::{LabeledSpan, parse_labels};
 pub use eval_run::{ClipScript, EvalReport, score_scripts};
 pub use judge_sched::JudgeScheduler;
-pub use license::{Feature, allows, issue_dev_license};
+pub use license::{Feature, allows};
 pub use moderator::{ModeratorCommand, apply_moderator, moderator_queue, serve_moderator};
 pub use obs_scan::{SourceScan, screenshot_targets, source_scan};
 pub use studio::StudioSettings;

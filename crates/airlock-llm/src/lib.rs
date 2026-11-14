@@ -72,7 +72,10 @@ pub fn build_prompt(req: &JudgeRequest<'_>) -> String {
     };
     let platform = platform_label(req.platform, req.also);
     PROMPT_TEMPLATE
-        .replace("{platform_rules}", &combined_platform_rules(req.platform, req.also))
+        .replace(
+            "{platform_rules}",
+            &combined_platform_rules(req.platform, req.also),
+        )
         .replace("{platform}", &platform)
         .replace(
             "{delay_seconds}",

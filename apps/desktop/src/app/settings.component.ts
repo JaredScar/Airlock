@@ -31,7 +31,6 @@ export class SettingsComponent {
   readonly termDraft = signal('');
   readonly keyDraft = signal('');
   readonly speechKeyDraft = signal('');
-  readonly licenseDraft = signal('');
   readonly streamKeyDraft = signal('');
   readonly obsPasswordDraft = signal('');
   readonly moderatorPasswordDraft = signal('');
@@ -139,22 +138,6 @@ export class SettingsComponent {
     const ms = Math.max(0, Math.round(Number(input.value) || 0));
     if (edge === 'before') this.studio.setCategory(id, { pad_before_ms: ms });
     else this.studio.setCategory(id, { pad_after_ms: ms });
-  }
-
-  onLicense(event: Event) {
-    const input = event.target;
-    if (input instanceof HTMLInputElement) this.licenseDraft.set(input.value);
-  }
-
-  async saveLicense(event: Event) {
-    event.preventDefault();
-    const saved = await this.studio.setLicense(this.licenseDraft());
-    if (saved) this.licenseDraft.set('');
-  }
-
-  resetLicense() {
-    this.licenseDraft.set('');
-    this.studio.clearLicense();
   }
 
   onTelemetry(event: Event) {

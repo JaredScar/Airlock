@@ -25,7 +25,7 @@
           </div>
         }
       </div>
-      <p class="hint">Check every destination. A second one needs Pro. Edit chooses which key this box saves.</p>
+      <p class="hint">Check every destination. Edit chooses which key this box saves.</p>
       <form class="add" (submit)="$event.preventDefault(); saveStreamKey()">
         <input type="password" autocomplete="off" [value]="streamKeyDraft()" (input)="onStreamKey($event)" [attr.placeholder]="platformName() + ' stream key'" [attr.aria-label]="platformName() + ' stream key'" />
         <button type="submit">Save stream key</button>

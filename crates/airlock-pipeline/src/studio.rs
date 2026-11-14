@@ -1,11 +1,11 @@
 //! What the streamer configures before a session.
 //!
-//! Several destinations can receive the same cleaned stream. A second destination
-//! needs Pro. Airlock's platform packs stay versioned files. The streamer's own
+//! Several destinations can receive the same cleaned stream. Airlock's platform
+//! packs stay versioned files. The streamer's own
 //! rules are stored per platform, and every destination being published is included
 //! in the judge prompt. Private terms stay on the machine.
 
-use crate::{DEFAULT_ALLOWLIST, DEFAULT_PROFANITY, Feature, SessionConfig, allows};
+use crate::{DEFAULT_ALLOWLIST, DEFAULT_PROFANITY, SessionConfig};
 use airlock_core::{Platform, Policy};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -43,7 +43,7 @@ pub struct StudioSettings {
     pub shortcut_dump: String,
     #[serde(default = "shortcut_safe")]
     pub shortcut_safe: String,
-    /// Empty until the streamer pastes a Pro key. Checked offline.
+    /// Kept so an older settings file still loads. It does not turn features on or off.
     #[serde(default)]
     pub license_key: String,
     /// Crash and latency reports. Off, and there is no destination unless one is set.
@@ -121,7 +121,7 @@ impl StudioSettings {
         self.rules_of(self.platform)
     }
 
-    /// Platforms the streamer asked to publish to, before the license check.
+    /// Platforms the streamer asked to publish to.
     pub fn saved_destinations(&self) -> Vec<Platform> {
         let source = if self.destinations.is_empty() {
             vec![self.platform]
@@ -137,16 +137,9 @@ impl StudioSettings {
         out
     }
 
-    /// Platforms this session publishes. Without Pro, only one remains.
+    /// Platforms this session publishes.
     pub fn publish_platforms(&self) -> Vec<Platform> {
-        let saved = self.saved_destinations();
-        if saved.len() > 1 && !allows(&self.license_key, Feature::Multistream) {
-            if saved.contains(&self.platform) {
-                return vec![self.platform];
-            }
-            return vec![saved[0]];
-        }
-        saved
+        self.saved_destinations()
     }
 
     /// Streamer rules for every platform in `platforms`, in that order, without duplicates.
