@@ -42,18 +42,30 @@ jobs:
       - name: Export build tools
         shell: bash
         run: |
+          echo "CMAKE_GENERATOR=Ninja" >> "${GITHUB_ENV}"
           if [ "${RUNNER_OS}" = "Windows" ]; then
             echo "LIBCLANG_PATH=${LLVM_PATH}/bin" >> "${GITHUB_ENV}"
           else
             echo "LIBCLANG_PATH=${LLVM_PATH}/lib" >> "${GITHUB_ENV}"
-            echo "CMAKE_GENERATOR=Unix Makefiles" >> "${GITHUB_ENV}"
           fi
           if [ "${RUNNER_OS}" = "macOS" ]; then
             sdk="$(xcrun --show-sdk-path)"
             echo "SDKROOT=${sdk}" >> "${GITHUB_ENV}"
+            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "${GITHUB_ENV}"
+            echo "CMAKE_OSX_DEPLOYMENT_TARGET=11.0" >> "${GITHUB_ENV}"
             echo "BINDGEN_EXTRA_CLANG_ARGS=-isysroot ${sdk}" >> "${GITHUB_ENV}"
           fi
-          echo "libclang directory is ${LLVM_PATH}"
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      - name: Ninja
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja -y
+          }
 
       - uses: Swatinem/rust-cache@v2
 
