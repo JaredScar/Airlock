@@ -39,16 +39,21 @@ jobs:
         with:
           version: "18"
 
-      - name: Export libclang
+      - name: Export build tools
         shell: bash
         run: |
           if [ "${RUNNER_OS}" = "Windows" ]; then
-            dir="${GITHUB_WORKSPACE}/llvm/bin"
+            echo "LIBCLANG_PATH=${LLVM_PATH}/bin" >> "${GITHUB_ENV}"
           else
-            dir="${GITHUB_WORKSPACE}/llvm/lib"
+            echo "LIBCLANG_PATH=${LLVM_PATH}/lib" >> "${GITHUB_ENV}"
+            echo "CMAKE_GENERATOR=Unix Makefiles" >> "${GITHUB_ENV}"
           fi
-          ls "${dir}"
-          echo "LIBCLANG_PATH=${dir}" >> "${GITHUB_ENV}"
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            sdk="$(xcrun --show-sdk-path)"
+            echo "SDKROOT=${sdk}" >> "${GITHUB_ENV}"
+            echo "BINDGEN_EXTRA_CLANG_ARGS=-isysroot ${sdk}" >> "${GITHUB_ENV}"
+          fi
+          echo "libclang directory is ${LLVM_PATH}"
 
       - uses: Swatinem/rust-cache@v2
 
@@ -74,7 +79,8 @@ jobs:
             pkg-config \
             libssl-dev \
             build-essential \
-            fakeroot
+            fakeroot \
+            libtinfo5
 
       - name: WiX for the MSI
         if: runner.os == 'Windows'
