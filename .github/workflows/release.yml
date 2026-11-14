@@ -39,6 +39,17 @@ jobs:
         with:
           version: "18"
 
+      - name: Export libclang
+        shell: bash
+        run: |
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            dir="${GITHUB_WORKSPACE}/llvm/bin"
+          else
+            dir="${GITHUB_WORKSPACE}/llvm/lib"
+          fi
+          ls "${dir}"
+          echo "LIBCLANG_PATH=${dir}" >> "${GITHUB_ENV}"
+
       - uses: Swatinem/rust-cache@v2
 
       - uses: actions/setup-node@v4
@@ -94,5 +105,5 @@ jobs:
           prerelease: false
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: true
-          retryAttempts: 3
+          retryAttempts: 1
           args: --config src-tauri/tauri.ci.json --bundles ${{ matrix.bundles }}
