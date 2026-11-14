@@ -42,6 +42,16 @@ npm install
 npm run tauri dev                 # then click Demo, then Run demo
 ```
 
+## Installers
+
+Pushing a tag such as `v0.1.0`, or running the Release workflow by hand, builds a draft GitHub release:
+
+- Windows: NSIS setup `.exe` and `.msi`
+- macOS: Apple Silicon `.dmg`
+- Linux: `.deb` and `.AppImage`
+
+Those runner builds use CPU speech. They are not code-signed.
+
 ## Docs
 
 - [PLAN.md](PLAN.md): phased task list

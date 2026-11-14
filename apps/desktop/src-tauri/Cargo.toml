@@ -30,7 +30,7 @@ airlock-pipeline.workspace = true
 airlock-llm.workspace = true
 airlock-asr = { workspace = true, features = ["whisper"] }
 airlock-vision = { workspace = true }
-keyring = { version = "3", features = ["windows-native"] }
+keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service", "crypto-rust"] }
 base64 = "0.22"
 sha2 = "0.10"
 tungstenite = "0.26"

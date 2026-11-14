@@ -1,0 +1,15 @@
+{
+  "build": {
+    "features": []
+  },
+  "bundle": {
+    "macOS": {
+      "signingIdentity": "-"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks-ci.nsh"
+      }
+    }
+  }
+}
